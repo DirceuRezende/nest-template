@@ -11,9 +11,14 @@ services:
       - ./database-data:/var/lib/postgresql/data
     ports:
       - 5432:5432
-  redis:
-    container_name: redis
-    image: redis
+  test-db:
+    image: postgres
     restart: always
+    environment:
+      - POSTGRES_USER=docker
+      - POSTGRES_PASSWORD=docker
+      - POSTGRES_DB=application
+    volumes:
+      - ./database-data:/var/lib/postgresql/data
     ports:
-      - 6379:6379
+      - 5434:5432

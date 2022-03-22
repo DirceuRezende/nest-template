@@ -14,8 +14,10 @@ model User {
   id      Int @id @default(autoincrement())
   email   String @unique
   name    String @db.VarChar(255)
-  password String @db.VarChar(255)
-  verified_email Boolean @default(false)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+  password     String @db.VarChar(255)
+  hashedRt String? @db.VarChar(255)
+  
+  @@map("users")
 }
