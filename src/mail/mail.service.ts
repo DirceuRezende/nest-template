@@ -1,7 +1,7 @@
 import { MailerService } from '@nestjs-modules/mailer';
 import { Injectable } from '@nestjs/common';
 import { User } from '@prisma/client';
-
+import { join } from 'path';
 @Injectable()
 export class MailService {
   constructor(private mailerService: MailerService) {}
@@ -10,7 +10,13 @@ export class MailService {
     await this.mailerService.sendMail({
       to: user.email,
       subject: 'Welcome to Nice App! Confirm your Email',
-      template: './confirmation',
+      template: join(
+        process.cwd(),
+        'dist',
+        'mail',
+        'templates',
+        'confirmation.hbs',
+      ),
       context: {
         name: user.name,
         url,
@@ -23,7 +29,13 @@ export class MailService {
     await this.mailerService.sendMail({
       to: email,
       subject: 'Reset password',
-      template: './reset_password',
+      template: join(
+        process.cwd(),
+        'dist',
+        'mail',
+        'templates',
+        `reset_password.hbs`,
+      ),
       context: {
         name: email,
         url,

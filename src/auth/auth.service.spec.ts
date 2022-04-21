@@ -1,11 +1,14 @@
 import { ConfigService } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
+import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
 import { Tokens } from './types';
 import * as argon from 'argon2';
+import { UserService } from '../user/user.service';
+import { MailService } from '../mail/mail.service';
+import { BadRequestException } from '@nestjs/common';
 
 const user = {
   email: 'test@gmail.com',
@@ -26,6 +29,14 @@ describe('Auth Flow', () => {
     },
   };
 
+  const mockMailService = {
+    sendUserConfirmation: jest.fn(),
+  };
+
+  const mockUserService = {
+    updateUser: jest.fn(),
+  };
+
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
       imports: [JwtModule.register({})],
@@ -36,6 +47,14 @@ describe('Auth Flow', () => {
           useValue: mockPrismaService,
         },
         ConfigService,
+        {
+          provide: UserService,
+          useValue: mockUserService,
+        },
+        {
+          provide: MailService,
+          useValue: mockMailService,
+        },
       ],
     }).compile();
 
@@ -51,7 +70,6 @@ describe('Auth Flow', () => {
     it('should signup', async () => {
       mockPrismaService.user.create.mockResolvedValueOnce({
         ...user,
-
         id: '1',
       });
       const tokens = await authService.signupLocal({
@@ -59,7 +77,7 @@ describe('Auth Flow', () => {
         password: user.password,
         name: user.name,
       });
-
+      expect(mockMailService.sendUserConfirmation).toHaveBeenCalled();
       expect(tokens.access_token).toBeTruthy();
       expect(tokens.refresh_token).toBeTruthy();
     });
@@ -225,6 +243,50 @@ describe('Auth Flow', () => {
       await authService.updateRtHash(1, 'hash');
 
       expect(mockPrismaService.user.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('verifyEmail', () => {
+    it('should return a User with email_verified equal true if token is valid', async () => {
+      const jwtService = moduleRef.get(JwtService);
+      const spy = jest.spyOn(jwtService, 'verify');
+      spy.mockReturnValue({ user, id: 1 });
+      mockUserService.updateUser.mockResolvedValueOnce({
+        ...user,
+
+        email_verified: true,
+      });
+
+      const r = await authService.verifyEmail('token');
+
+      expect(spy).toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledWith('token', { secret: 'at-secret' });
+      expect(mockUserService.updateUser).toHaveBeenCalled();
+      expect(mockUserService.updateUser).toHaveBeenCalledWith(1, {
+        email_verified: true,
+      });
+      expect(r).toMatchObject({
+        ...user,
+        email_verified: true,
+      });
+    });
+
+    it('should throw a BadRequestException when token is invalid', async () => {
+      const jwtService = moduleRef.get(JwtService);
+      const spy = jest.spyOn(jwtService, 'verify');
+      spy.mockImplementationOnce(() => {
+        throw new BadRequestException('Invalid token');
+      });
+
+      try {
+        await authService.verifyEmail('token');
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.message).toBe('Invalid token');
+      }
+
+      expect(spy).toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledWith('token', { secret: 'at-secret' });
     });
   });
 });

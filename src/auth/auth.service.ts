@@ -1,8 +1,15 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { User } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import * as argon from 'argon2';
+import { MailService } from '../mail/mail.service';
+import { UserService } from '../user/user.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AuthDto } from './dto';
@@ -15,6 +22,8 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private config: ConfigService,
+    private userService: UserService,
+    private mailService: MailService,
   ) {}
 
   async signupLocal(dto: CreateUserDto): Promise<Auth> {
@@ -40,7 +49,7 @@ export class AuthService {
 
     const tokens = await this.getTokens(user.id, user.email);
     await this.updateRtHash(user.id, tokens.refresh_token);
-
+    this.sendEmailVerificationMail(user);
     return {
       ...tokens,
       user: {
@@ -139,5 +148,43 @@ export class AuthService {
       access_token: at,
       refresh_token: rt,
     };
+  }
+
+  private sendEmailVerificationMail(user: User): void {
+    const token = this.jwtService.sign(
+      { ...user },
+      {
+        secret: this.config.get<string>('JWT_SECRET'),
+        expiresIn: '120m',
+      },
+    );
+
+    // The url the user can click in the mail in order to verify the email address.
+    const url = `${process.env.FRONTEND_URL}/auth/email/verify/${token}`;
+
+    // Use the mailService to send the mail.
+    this.mailService.sendUserConfirmation(user, 'BlaBla', url);
+  }
+
+  async verifyEmail(token: string): Promise<User> {
+    // Validate token. Will throw error if it's not valid.
+    let userFromTokenPayload: User;
+    try {
+      userFromTokenPayload = this.jwtService.verify(token, {
+        secret: this.config.get<string>('AT_SECRET'),
+      });
+    } catch (error) {
+      throw new BadRequestException('Invalid token');
+    }
+
+    // Update email verification status.
+    const updatedUser = await this.userService.updateUser(
+      userFromTokenPayload.id,
+      {
+        email_verified: true,
+      },
+    );
+
+    return updatedUser;
   }
 }

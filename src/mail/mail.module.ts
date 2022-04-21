@@ -7,7 +7,6 @@ import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
     MailerModule.forRoot({
       transport: {
         host: process.env.MAIL_HOST,
