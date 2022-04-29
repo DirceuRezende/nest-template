@@ -8,7 +8,8 @@ import { Tokens } from './types';
 import * as argon from 'argon2';
 import { UserService } from '../user/user.service';
 import { MailService } from '../mail/mail.service';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { User } from '@prisma/client';
 
 const user = {
   email: 'test@gmail.com',
@@ -35,6 +36,8 @@ describe('Auth Flow', () => {
 
   const mockUserService = {
     updateUser: jest.fn(),
+    find: jest.fn(),
+    findById: jest.fn(),
   };
 
   beforeAll(async () => {
@@ -287,6 +290,56 @@ describe('Auth Flow', () => {
 
       expect(spy).toHaveBeenCalled();
       expect(spy).toHaveBeenCalledWith('token', { secret: 'at-secret' });
+    });
+  });
+
+  describe('changePassword', () => {
+    it('should change password when the user is correct', async () => {
+      const hashedPassword = await argon.hash('password');
+      const userWithHashedPassword: User = {
+        ...user,
+        password: hashedPassword,
+        id: 1,
+        created_at: new Date(),
+        updated_at: new Date(),
+        hashedRt: '',
+      };
+
+      mockUserService.findById.mockResolvedValueOnce(userWithHashedPassword);
+      mockUserService.updateUser.mockResolvedValueOnce(userWithHashedPassword);
+
+      const updatedUser = await authService.changePassword(
+        1,
+        'password',
+        'newPassword',
+      );
+      expect(updatedUser).toMatchObject(userWithHashedPassword);
+      expect(mockUserService.updateUser).toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when oldPassword is invalid', async () => {
+      const hashedPassword = await argon.hash('password');
+      const userWithHashedPassword: User = {
+        ...user,
+        password: hashedPassword,
+        id: 1,
+        created_at: new Date(),
+        updated_at: new Date(),
+        hashedRt: '',
+      };
+
+      try {
+        mockUserService.updateUser.mockResolvedValueOnce(
+          userWithHashedPassword,
+        );
+        mockUserService.findById.mockResolvedValueOnce(userWithHashedPassword);
+        await authService.changePassword(1, 'test', 'newPassword');
+        expect(user).toMatchObject(userWithHashedPassword);
+        expect(mockUserService.updateUser).toHaveBeenCalled();
+      } catch (error) {
+        expect(error).toBeInstanceOf(UnauthorizedException);
+        expect(error.message).toBe('Old password not correct');
+      }
     });
   });
 });

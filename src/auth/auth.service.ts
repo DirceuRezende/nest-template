@@ -2,6 +2,8 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -184,6 +186,131 @@ export class AuthService {
         email_verified: true,
       },
     );
+
+    return updatedUser;
+  }
+
+  /**
+   * Update the password of a user.
+   *
+   * @param {User} user
+   *   The user object.
+   * @param oldPassword
+   *   The old password of the user in plain text.
+   * @param newPassword
+   *   The new password in plain text.
+   *
+   * @returns
+   */
+  async changePassword(
+    id: number,
+    oldPassword: string,
+    newPassword: string,
+  ): Promise<any> {
+    // Probably the password is not included in the user object. Thus, we need to reload the user and include the password.
+
+    const user = await this.userService.findById(id);
+
+    // Check if the old password is correct.
+    const isOldPasswordCorrect: boolean = await argon.verify(
+      user.password,
+      oldPassword,
+    );
+
+    if (!isOldPasswordCorrect) {
+      throw new UnauthorizedException('Old password not correct');
+    }
+
+    // Hash new password & update entity.
+    const password = await argon.hash(newPassword);
+    return await this.userService.updateUser(user.id, {
+      password,
+    });
+  }
+
+  /**
+   * Send a reset password link to a given email that the user can then use to reset her password.
+   *
+   * @param {string} email
+   *   The email of the user.
+   *
+   * @returns
+   */
+  async sendForgotPasswordLink(email: string) {
+    const user = await this.userService.find({ email });
+
+    // For security issues we won't throw an error if there is no user with the
+    // provided email address.
+    if (!user) {
+      return;
+    }
+
+    // Sign a token that will expire in 5 minutes.
+    const token = await this.jwtService.sign(
+      { email },
+      {
+        secret: this.config.get<string>('JWT_SECRET'),
+        expiresIn: '120m',
+      },
+    );
+
+    // Create an entry in the Forgot Password table.
+    await this.prisma.forgotPassword.create({
+      data: {
+        email,
+        token,
+      },
+    });
+
+    // Send email with the reset password link.
+    const url = `${process.env.FRONTEND_URL}/auth/password/reset/${token}`;
+    await this.mailService.sendResetPasswordLink(email, url);
+  }
+
+  /**
+   * Let the user set a new password after declaring that she forgot it.
+   *
+   * @param {string} token
+   *   The token that she got per mail. Necessary for security reasons.
+   *
+   * @param newPassword
+   *   The new password the user wants to set.
+   *
+   * @returns
+   */
+  async resetPassword(token: string, newPassword: string): Promise<User> {
+    // Load the entry from DB with the given token.
+    const forgotToken = await this.prisma.forgotPassword.findFirst({
+      where: {
+        token,
+      },
+    });
+    if (!forgotToken) {
+      throw new BadRequestException('Invalid token');
+    }
+
+    // Decode token. Throws an error if invalid, return object with user email if valid.
+    let emailFromToken: any;
+    try {
+      emailFromToken = this.jwtService.verify(token, {
+        secret: this.config.get<string>('JWT_SECRET'),
+      });
+    } catch (error) {
+      throw new BadRequestException('Invalid token');
+    }
+    if (emailFromToken.email !== forgotToken.email) {
+      throw new BadRequestException('Invalid token');
+    }
+
+    const hashedPassword = await argon.hash(newPassword);
+    const user = await this.userService.find({ email: forgotToken.email });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updatedUser = await this.userService.updateUser(user.id, {
+      password: hashedPassword,
+    });
 
     return updatedUser;
   }

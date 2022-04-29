@@ -21,3 +21,13 @@ model User {
   
   @@map("users")
 }
+
+model ForgotPassword {
+  id      Int @id @default(autoincrement())
+  email String @db.VarChar(255)
+  token   String @db.VarChar(400)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  
+  @@map("forgot_passwords")
+}
