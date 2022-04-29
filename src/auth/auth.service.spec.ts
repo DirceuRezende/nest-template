@@ -28,10 +28,14 @@ describe('Auth Flow', () => {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
+    forgotPassword: {
+      create: jest.fn(),
+    },
   };
 
   const mockMailService = {
     sendUserConfirmation: jest.fn(),
+    sendResetPasswordLink: jest.fn(),
   };
 
   const mockUserService = {
@@ -340,6 +344,41 @@ describe('Auth Flow', () => {
         expect(error).toBeInstanceOf(UnauthorizedException);
         expect(error.message).toBe('Old password not correct');
       }
+    });
+  });
+  describe('sendForgotPasswordLink', () => {
+    it('should do nothing when e-mail is invalid', async () => {
+      mockUserService.find.mockResolvedValueOnce(null);
+      const sendForgotPasswordLinkReturn =
+        await authService.sendForgotPasswordLink('example@example.com');
+      expect(sendForgotPasswordLinkReturn).toBeUndefined();
+      expect(mockMailService.sendResetPasswordLink).not.toHaveBeenCalled();
+    });
+
+    it('should call sendResetPasswordLink correctly', async () => {
+      const jwtService = moduleRef.get(JwtService);
+      const spy = jest.spyOn(jwtService, 'sign');
+      spy.mockImplementationOnce(() => {
+        return 'token';
+      });
+      mockUserService.find.mockResolvedValueOnce(user);
+      mockPrismaService.forgotPassword.create.mockResolvedValueOnce(user);
+      await authService.sendForgotPasswordLink('example@example.com');
+
+      expect(mockMailService.sendResetPasswordLink).toHaveBeenCalled();
+      expect(mockMailService.sendResetPasswordLink).toHaveBeenCalledWith(
+        'example@example.com',
+        'yourfrontend.com/auth/password/reset/token',
+      );
+      expect(mockPrismaService.forgotPassword.create).toHaveBeenCalled();
+      expect(mockPrismaService.forgotPassword.create).toHaveBeenCalledWith({
+        data: { email: 'example@example.com', token: 'token' },
+      });
+      expect(spy).toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledWith(
+        { email: 'example@example.com' },
+        { expiresIn: '120m', secret: 'secret' },
+      );
     });
   });
 });
