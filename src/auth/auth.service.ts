@@ -29,25 +29,7 @@ export class AuthService {
   ) {}
 
   async signupLocal(dto: CreateUserDto): Promise<Auth> {
-    const password = await argon.hash(dto.password);
-
-    const user = await this.prisma.user
-      .create({
-        data: {
-          email: dto.email,
-          password: password,
-          name: dto.name,
-        },
-      })
-      .catch((error) => {
-        if (error instanceof PrismaClientKnownRequestError) {
-          if (error.code === 'P2002') {
-            throw new ForbiddenException('Credentials incorrect');
-          }
-        }
-
-        throw error;
-      });
+    const user = await this.userService.createUser(dto);
 
     const tokens = await this.getTokens(user.id, user.email);
     await this.updateRtHash(user.id, tokens.refresh_token);

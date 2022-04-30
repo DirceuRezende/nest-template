@@ -8,7 +8,12 @@ import { Tokens } from './types';
 import * as argon from 'argon2';
 import { UserService } from '../user/user.service';
 import { MailService } from '../mail/mail.service';
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { User } from '@prisma/client';
 
 const user = {
@@ -30,6 +35,7 @@ describe('Auth Flow', () => {
     },
     forgotPassword: {
       create: jest.fn(),
+      findFirst: jest.fn(),
     },
   };
 
@@ -42,6 +48,7 @@ describe('Auth Flow', () => {
     updateUser: jest.fn(),
     find: jest.fn(),
     findById: jest.fn(),
+    createUser: jest.fn(),
   };
 
   beforeAll(async () => {
@@ -75,7 +82,7 @@ describe('Auth Flow', () => {
 
   describe('signup', () => {
     it('should signup', async () => {
-      mockPrismaService.user.create.mockResolvedValueOnce({
+      mockUserService.createUser.mockResolvedValueOnce({
         ...user,
         id: '1',
       });
@@ -91,8 +98,8 @@ describe('Auth Flow', () => {
 
     it('should throw on duplicate user signup', async () => {
       let tokens: Tokens | undefined;
-      mockPrismaService.user.create.mockRejectedValueOnce(
-        new PrismaClientKnownRequestError('Error', 'P2002', '1'),
+      mockUserService.createUser.mockRejectedValueOnce(
+        new ForbiddenException('Credentials incorrect'),
       );
       try {
         tokens = await authService.signupLocal({
@@ -101,7 +108,8 @@ describe('Auth Flow', () => {
           name: user.name,
         });
       } catch (error) {
-        expect(error.status).toBe(403);
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Credentials incorrect');
       }
 
       expect(tokens).toBeUndefined();
@@ -379,6 +387,120 @@ describe('Auth Flow', () => {
         { email: 'example@example.com' },
         { expiresIn: '120m', secret: 'secret' },
       );
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should throw BadRequestException when token no exist in Database', async () => {
+      mockPrismaService.forgotPassword.findFirst.mockResolvedValueOnce(null);
+      try {
+        await authService.resetPassword('token', 'newPassword');
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.message).toBe('Invalid token');
+      }
+    });
+
+    it('should throw BadRequestException when token is invalid in JWT', async () => {
+      const jwtService = moduleRef.get(JwtService);
+      const spy = jest.spyOn(jwtService, 'verify');
+      spy.mockImplementationOnce(() => {
+        throw new BadRequestException('Invalid token');
+      });
+
+      mockPrismaService.forgotPassword.findFirst.mockResolvedValueOnce(
+        'invalidToken',
+      );
+      try {
+        await authService.resetPassword('token', 'newPassword');
+      } catch (error) {
+        expect(spy).toHaveBeenCalled();
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.message).toBe('Invalid token');
+      }
+    });
+    it('should throw BadRequestException when token email is not equal from database', async () => {
+      const jwtService = moduleRef.get(JwtService);
+      const spy = jest.spyOn(jwtService, 'verify');
+      spy.mockImplementationOnce(() => {
+        return {
+          email: 'example@example.com',
+        };
+      });
+
+      mockPrismaService.forgotPassword.findFirst.mockResolvedValueOnce({
+        email: 'example2@example.com',
+      });
+      try {
+        await authService.resetPassword('token', 'newPassword');
+      } catch (error) {
+        expect(spy).toHaveBeenCalled();
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.message).toBe('Invalid token');
+      }
+    });
+    it('should throw NotFoundException when user no exist', async () => {
+      const jwtService = moduleRef.get(JwtService);
+      const spy = jest.spyOn(jwtService, 'verify');
+      spy.mockImplementationOnce(() => {
+        return {
+          email: 'example@example.com',
+        };
+      });
+
+      mockPrismaService.forgotPassword.findFirst.mockResolvedValueOnce({
+        email: 'example@example.com',
+      });
+
+      mockUserService.find.mockResolvedValue(null);
+      try {
+        await authService.resetPassword('token', 'newPassword');
+      } catch (error) {
+        expect(spy).toHaveBeenCalled();
+        expect(error).toBeInstanceOf(NotFoundException);
+        expect(error.message).toBe('User not found');
+      }
+    });
+    it('should update user with new password', async () => {
+      const jwtService = moduleRef.get(JwtService);
+      const spy = jest.spyOn(jwtService, 'verify');
+      spy.mockImplementationOnce(() => {
+        return {
+          email: 'example@example.com',
+        };
+      });
+
+      mockPrismaService.forgotPassword.findFirst.mockResolvedValueOnce({
+        email: 'example@example.com',
+      });
+
+      mockUserService.find.mockResolvedValue({
+        ...user,
+        id: 1,
+      });
+
+      mockUserService.updateUser.mockImplementationOnce((id) => {
+        return {
+          ...user,
+          id,
+          password: 'hashPassword',
+        };
+      });
+
+      const updatedUser = await authService.resetPassword(
+        'token',
+        'newPassword',
+      );
+      expect(updatedUser).toEqual({
+        email: 'test@gmail.com',
+        id: 1,
+        name: 'test',
+        password: 'hashPassword',
+      });
+      expect(spy).toHaveBeenCalled();
+      expect(mockUserService.find).toHaveBeenCalled();
+      expect(mockUserService.updateUser).toHaveBeenCalled();
+      expect(mockPrismaService.forgotPassword.findFirst).toHaveBeenCalled();
     });
   });
 });
