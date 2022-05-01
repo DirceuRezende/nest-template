@@ -1,5 +1,3 @@
-import { ConfigService } from '@nestjs/config';
-import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,10 +6,7 @@ import {
   BadRequestException,
   ForbiddenException,
   InternalServerErrorException,
-  NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
-import { User } from '@prisma/client';
 
 const user = {
   email: 'test@gmail.com',
@@ -19,7 +14,7 @@ const user = {
   name: 'test',
 };
 
-describe('Auth Flow', () => {
+describe('UserService', () => {
   let userService: UserService;
   let moduleRef: TestingModule;
 
@@ -194,6 +189,7 @@ describe('Auth Flow', () => {
         created_at: new Date(),
         updated_at: new Date(),
         hashedRt: '',
+        email_verified: false,
       });
       mockPrismaService.user.update.mockResolvedValueOnce({
         ...user,
@@ -212,15 +208,6 @@ describe('Auth Flow', () => {
       });
     });
     it('should throw a InternalServerErrorException Prisma User Update throw a Error', async () => {
-      const spy = jest.spyOn(userService, 'findById');
-      spy.mockResolvedValueOnce({
-        ...user,
-        id: 1,
-        name: 'Test',
-        created_at: new Date(),
-        updated_at: new Date(),
-        hashedRt: '',
-      });
       mockPrismaService.user.update.mockImplementationOnce(() => {
         throw new Error('Unexpected Error');
       });
@@ -231,7 +218,6 @@ describe('Auth Flow', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(InternalServerErrorException);
         expect(error.message).toBe('Unexpected Error');
-        expect(spy).toHaveBeenCalled();
       }
     });
 
@@ -248,6 +234,40 @@ describe('Auth Flow', () => {
         expect(error).toBeInstanceOf(BadRequestException);
         expect(error.message).toBe('User not found');
         expect(spy).toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe('updateMany', () => {
+    it('should update user', async () => {
+      mockPrismaService.user.updateMany.mockResolvedValueOnce(1);
+      const returnedUser = await userService.updateMany({
+        data: {
+          name: 'Change Name',
+        },
+        where: {
+          id: 1,
+        },
+      });
+      expect(mockPrismaService.user.updateMany).toHaveBeenCalled();
+      expect(returnedUser).toBe(1);
+    });
+    it('should throw a InternalServerErrorException Prisma User Update throw a Error', async () => {
+      mockPrismaService.user.updateMany.mockImplementationOnce(() => {
+        throw new Error('Unexpected Error');
+      });
+      try {
+        await userService.updateMany({
+          data: {
+            name: 'Change Name',
+          },
+          where: {
+            id: 1,
+          },
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(InternalServerErrorException);
+        expect(error.message).toBe('Unexpected Error');
       }
     });
   });

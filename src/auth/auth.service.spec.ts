@@ -1,7 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
 import { Tokens } from './types';
@@ -11,6 +10,7 @@ import { MailService } from '../mail/mail.service';
 import {
   BadRequestException,
   ForbiddenException,
+  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -22,7 +22,7 @@ const user = {
   name: 'test',
 };
 
-describe('Auth Flow', () => {
+describe('AuthService', () => {
   let authService: AuthService;
   let moduleRef: TestingModule;
 
@@ -49,6 +49,7 @@ describe('Auth Flow', () => {
     find: jest.fn(),
     findById: jest.fn(),
     createUser: jest.fn(),
+    updateMany: jest.fn(),
   };
 
   beforeAll(async () => {
@@ -118,7 +119,9 @@ describe('Auth Flow', () => {
 
   describe('signin', () => {
     it('should throw if no existing user', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValueOnce(undefined);
+      mockUserService.find.mockRejectedValueOnce(
+        new BadRequestException('User not found'),
+      );
       let tokens: Tokens | undefined;
       try {
         tokens = await authService.signinLocal({
@@ -126,7 +129,8 @@ describe('Auth Flow', () => {
           password: user.password,
         });
       } catch (error) {
-        expect(error.status).toBe(403);
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Access Denied');
       }
 
       expect(tokens).toBeUndefined();
@@ -134,7 +138,7 @@ describe('Auth Flow', () => {
 
     it('should login', async () => {
       const password = await argon.hash(user.password);
-      mockPrismaService.user.findUnique.mockResolvedValueOnce({
+      mockUserService.find.mockResolvedValueOnce({
         ...user,
         password,
         id: '1',
@@ -151,7 +155,7 @@ describe('Auth Flow', () => {
 
     it('should throw if password incorrect', async () => {
       const password = await argon.hash(user.password);
-      mockPrismaService.user.findUnique.mockResolvedValueOnce({
+      mockUserService.find.mockResolvedValueOnce({
         ...user,
         password,
         id: '1',
@@ -163,16 +167,15 @@ describe('Auth Flow', () => {
           password: user.password + 'a',
         });
       } catch (error) {
-        expect(error.status).toBe(403);
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Access Denied');
       }
 
       expect(tokens).toBeUndefined();
     });
 
     it('should throw if unexpected error happens', async () => {
-      mockPrismaService.user.findUnique.mockRejectedValueOnce(
-        new Error('Unexpected error'),
-      );
+      mockUserService.find.mockRejectedValueOnce(new Error('Unexpected error'));
       let tokens: Tokens | undefined;
       try {
         tokens = await authService.signinLocal({
@@ -180,6 +183,7 @@ describe('Auth Flow', () => {
           password: user.password,
         });
       } catch (error) {
+        expect(error).toBeInstanceOf(Error);
         expect(error.message).toBe('Unexpected error');
       }
 
@@ -191,30 +195,49 @@ describe('Auth Flow', () => {
     it('should pass if call to non existent user', async () => {
       const result = await authService.logout(4);
       expect(result).toBeDefined();
+      expect(mockUserService.updateMany).toHaveBeenCalled();
     });
   });
 
   describe('refresh', () => {
-    it('should throw if no existing user', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValueOnce(undefined);
+    it('should throw if not existing user', async () => {
+      mockUserService.findById.mockRejectedValueOnce(
+        new BadRequestException('User not found'),
+      );
       let tokens: Tokens | undefined;
       try {
         tokens = await authService.refreshTokens(1, '');
       } catch (error) {
-        expect(error.status).toBe(403);
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Access Denied');
+      }
+
+      expect(tokens).toBeUndefined();
+    });
+    it('should throw InternalServerErrorException if an unexpected error has occurred', async () => {
+      mockUserService.findById.mockRejectedValueOnce(
+        new Error('Unexpected error'),
+      );
+      let tokens: Tokens | undefined;
+      try {
+        tokens = await authService.refreshTokens(1, '');
+      } catch (error) {
+        expect(error).toBeInstanceOf(InternalServerErrorException);
+        expect(error.message).toBe('Unexpected error');
       }
 
       expect(tokens).toBeUndefined();
     });
     it('should throw if user logged out', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValueOnce({
+      mockUserService.findById.mockResolvedValueOnce({
         hashedRt: undefined,
       });
       let tokens: Tokens | undefined;
       try {
         tokens = await authService.refreshTokens(1, '');
       } catch (error) {
-        expect(error.status).toBe(403);
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Access Denied');
       }
 
       expect(tokens).toBeUndefined();
@@ -223,15 +246,15 @@ describe('Auth Flow', () => {
     it('should throw if refresh token incorrect', async () => {
       const rt = 'hash';
       const hashedRt = await argon.hash(rt);
-      mockPrismaService.user.findUnique.mockResolvedValueOnce({
+      mockUserService.findById.mockResolvedValueOnce({
         hashedRt,
       });
-
       let tokens: Tokens | undefined;
       try {
-        tokens = await authService.refreshTokens(1, rt + 'a');
+        tokens = await authService.refreshTokens(1, '');
       } catch (error) {
-        expect(error.status).toBe(403);
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Access Denied');
       }
 
       expect(tokens).toBeUndefined();
@@ -240,7 +263,7 @@ describe('Auth Flow', () => {
     it('should throw if refresh token incorrect', async () => {
       const rt = 'hash';
       const hashedRt = await argon.hash(rt);
-      mockPrismaService.user.findUnique.mockResolvedValueOnce({
+      mockUserService.findById.mockResolvedValueOnce({
         hashedRt,
       });
 
@@ -254,10 +277,10 @@ describe('Auth Flow', () => {
   });
 
   describe('updateRtHash', () => {
-    it('should call prisma.user.update', async () => {
+    it('should call userService.updateUser', async () => {
       await authService.updateRtHash(1, 'hash');
 
-      expect(mockPrismaService.user.update).toHaveBeenCalled();
+      expect(mockUserService.updateUser).toHaveBeenCalled();
     });
   });
 
@@ -308,13 +331,10 @@ describe('Auth Flow', () => {
   describe('changePassword', () => {
     it('should change password when the user is correct', async () => {
       const hashedPassword = await argon.hash('password');
-      const userWithHashedPassword: User = {
+      const userWithHashedPassword: Partial<User> = {
         ...user,
         password: hashedPassword,
         id: 1,
-        created_at: new Date(),
-        updated_at: new Date(),
-        hashedRt: '',
       };
 
       mockUserService.findById.mockResolvedValueOnce(userWithHashedPassword);
@@ -331,13 +351,10 @@ describe('Auth Flow', () => {
 
     it('should throw BadRequestException when oldPassword is invalid', async () => {
       const hashedPassword = await argon.hash('password');
-      const userWithHashedPassword: User = {
+      const userWithHashedPassword: Partial<User> = {
         ...user,
         password: hashedPassword,
         id: 1,
-        created_at: new Date(),
-        updated_at: new Date(),
-        hashedRt: '',
       };
 
       try {

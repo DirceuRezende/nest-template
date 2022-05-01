@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from '../user/user.service';
 import { JwtModule } from '@nestjs/jwt';
+import { ForbiddenException } from '@nestjs/common';
 
 const user = {
   email: 'test@gmail.com',
@@ -76,7 +77,8 @@ describe('Auth Flow', () => {
           name: user.name,
         });
       } catch (error) {
-        expect(error.status).toBe(403);
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Credentials incorrect');
       }
 
       expect(tokens).toBeUndefined();
@@ -95,7 +97,8 @@ describe('Auth Flow', () => {
           password: user.password,
         });
       } catch (error) {
-        expect(error.status).toBe(403);
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Access Denied');
       }
 
       expect(tokens).toBeUndefined();
@@ -125,7 +128,8 @@ describe('Auth Flow', () => {
           password: user.password + 'a',
         });
       } catch (error) {
-        expect(error.status).toBe(403);
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Access Denied');
       }
 
       expect(tokens).toBeUndefined();
@@ -181,7 +185,8 @@ describe('Auth Flow', () => {
       try {
         tokens = await authController.refreshTokens(1, '');
       } catch (error) {
-        expect(error.status).toBe(403);
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Access Denied');
       }
 
       expect(tokens).toBeUndefined();
@@ -210,7 +215,8 @@ describe('Auth Flow', () => {
       try {
         tokens = await authController.refreshTokens(userId, rt);
       } catch (error) {
-        expect(error.status).toBe(403);
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Access Denied');
       }
 
       expect(tokens).toBeUndefined();
@@ -234,7 +240,8 @@ describe('Auth Flow', () => {
       try {
         tokens = await authController.refreshTokens(userId, rt + 'a');
       } catch (error) {
-        expect(error.status).toBe(403);
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Access Denied');
       }
 
       expect(tokens).toBeUndefined();
