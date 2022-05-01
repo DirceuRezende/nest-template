@@ -2,13 +2,13 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import * as argon from 'argon2';
 import { MailService } from '../mail/mail.service';
 import { UserService } from '../user/user.service';
@@ -44,13 +44,22 @@ export class AuthService {
   }
 
   async signinLocal(dto: AuthDto): Promise<Auth> {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        email: dto.email,
-      },
-    });
-
-    if (!user) throw new ForbiddenException('Access Denied');
+    let user: User;
+    try {
+      user = await this.userService.find(
+        {
+          where: {
+            email: dto.email,
+          },
+        },
+        true,
+      );
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw new ForbiddenException('Access Denied');
+      }
+      throw new InternalServerErrorException(error);
+    }
 
     const passwordMatches = await argon.verify(user.password, dto.password);
     if (!passwordMatches) throw new ForbiddenException('Access Denied');
@@ -68,7 +77,7 @@ export class AuthService {
   }
 
   async logout(userId: number): Promise<boolean> {
-    await this.prisma.user.updateMany({
+    await this.userService.updateMany({
       where: {
         id: userId,
         hashedRt: {
@@ -83,12 +92,17 @@ export class AuthService {
   }
 
   async refreshTokens(userId: number, rt: string): Promise<Tokens> {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-    });
-    if (!user || !user.hashedRt) throw new ForbiddenException('Access Denied');
+    let user: User;
+    try {
+      user = await this.userService.findById(userId);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw new ForbiddenException('Access Denied');
+      }
+      throw new InternalServerErrorException(error);
+    }
+
+    if (!user.hashedRt) throw new ForbiddenException('Access Denied');
 
     const rtMatches = await argon.verify(user.hashedRt, rt);
     if (!rtMatches) throw new ForbiddenException('Access Denied');
@@ -101,14 +115,8 @@ export class AuthService {
 
   async updateRtHash(userId: number, rt: string): Promise<void> {
     const hash = await argon.hash(rt);
-    await this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        hashedRt: hash,
-      },
-    });
+
+    await this.userService.updateUser(userId, { hashedRt: hash });
   }
 
   async getTokens(userId: number, email: string): Promise<Tokens> {
@@ -160,7 +168,7 @@ export class AuthService {
     } catch (error) {
       throw new BadRequestException('Invalid token');
     }
-
+    await this.userService.findById(userFromTokenPayload.id);
     // Update email verification status.
     const updatedUser = await this.userService.updateUser(
       userFromTokenPayload.id,
@@ -219,7 +227,7 @@ export class AuthService {
    * @returns
    */
   async sendForgotPasswordLink(email: string) {
-    const user = await this.userService.find({ email });
+    const user = await this.userService.find({ where: { email } });
 
     // For security issues we won't throw an error if there is no user with the
     // provided email address.
@@ -285,7 +293,9 @@ export class AuthService {
     }
 
     const hashedPassword = await argon.hash(newPassword);
-    const user = await this.userService.find({ email: forgotToken.email });
+    const user = await this.userService.find({
+      where: { email: forgotToken.email },
+    });
     if (!user) {
       throw new NotFoundException('User not found');
     }

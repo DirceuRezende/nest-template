@@ -5,10 +5,12 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { User } from '@prisma/client';
+import { Prisma, User } from '@prisma/client';
 import { CreateUserDto } from 'src/auth/dto/create-user.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import * as argon from 'argon2';
+
+export type UpdateProperties = Partial<Omit<User, 'updated_at' | 'created_at'>>;
 
 @Injectable()
 export class UserService {
@@ -26,7 +28,10 @@ export class UserService {
     return user;
   }
 
-  async find(options: any, withPassword = false): Promise<User> {
+  async find(
+    options: Prisma.UserFindUniqueArgs,
+    withPassword = false,
+  ): Promise<User> {
     const user = await this.prismaService.user.findUnique(options);
     if (!user) {
       throw new BadRequestException('User not found');
@@ -61,19 +66,27 @@ export class UserService {
     return newUser;
   }
 
-  async updateUser(id: number, properties: any) {
-    const user = await this.findById(id);
-
+  async updateUser(id: number, properties: UpdateProperties): Promise<User> {
     try {
       const updatedUser = await this.prismaService.user.update({
         data: {
-          ...user,
           ...properties,
         },
         where: {
           id,
         },
       });
+      return updatedUser;
+    } catch (error) {
+      throw new InternalServerErrorException(error);
+    }
+  }
+
+  async updateMany(
+    properties: Prisma.UserUpdateManyArgs,
+  ): Promise<Prisma.BatchPayload> {
+    try {
+      const updatedUser = await this.prismaService.user.updateMany(properties);
       return updatedUser;
     } catch (error) {
       throw new InternalServerErrorException(error);
