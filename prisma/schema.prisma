@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,23 +8,24 @@ datasource db {
 }
 
 model User {
-  id      Int @id @default(autoincrement())
-  email   String @unique
-  name    String @db.VarChar(255)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  password     String @db.VarChar(255)
-  hashedRt String? @db.VarChar(255)
-  
+  id             Int      @id @default(autoincrement())
+  email          String   @unique
+  name           String   @db.VarChar(255)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  password       String   @db.VarChar(255)
+  hashedRt       String?  @db.VarChar(255)
+  email_verified Boolean? @default(false)
+
   @@map("users")
 }
 
 model ForgotPassword {
-  id      Int @id @default(autoincrement())
-  email String @db.VarChar(255)
-  token   String @db.VarChar(400)
+  id         Int      @id @default(autoincrement())
+  email      String   @db.VarChar(255)
+  token      String   @db.VarChar(400)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
-  
+
   @@map("forgot_passwords")
 }
