@@ -1,18 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { User } from '@prisma/client';
 import { decode } from 'jsonwebtoken';
-import { MailModule } from '../mail/mail.module';
-import { UserModule } from '../user/user.module';
-import { AppModule } from '../app.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthController } from './auth.controller';
 import { Tokens } from './types';
 import { MailService } from '../mail/mail.service';
-import { AuthService } from './auth.service';
-import { ConfigService } from '@nestjs/config';
-import { UserService } from '../user/user.service';
-import { JwtModule } from '@nestjs/jwt';
 import { ForbiddenException } from '@nestjs/common';
+import { AppModule } from '../app.module';
 
 const user = {
   email: 'test@gmail.com',
@@ -20,32 +14,22 @@ const user = {
   name: 'test',
 };
 
-const mockMailService = {
-  sendUserConfirmation: jest.fn(),
-};
 describe('Auth Flow', () => {
   let prisma: PrismaService;
   let authController: AuthController;
+  let mailService: MailService;
   let moduleRef: TestingModule;
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
-      imports: [JwtModule.register({})],
-      providers: [
-        AuthController,
-        AuthService,
-        PrismaService,
-        ConfigService,
-        UserService,
-        {
-          provide: MailService,
-          useValue: mockMailService,
-        },
-      ],
+      imports: [AppModule],
     }).compile();
 
     prisma = moduleRef.get(PrismaService);
     authController = moduleRef.get(AuthController);
+    mailService = moduleRef.get(MailService);
+    const spy = jest.spyOn(mailService, 'sendUserConfirmation');
+    spy.mockReturnValue(Promise.resolve());
   });
 
   afterAll(async () => {
