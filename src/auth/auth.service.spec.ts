@@ -11,7 +11,6 @@ import {
   BadRequestException,
   ForbiddenException,
   InternalServerErrorException,
-  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { User } from '@prisma/client';
@@ -32,9 +31,10 @@ describe('AuthService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
+      upsert: jest.fn(),
     },
     forgotPassword: {
-      create: jest.fn(),
+      upsert: jest.fn(),
       findFirst: jest.fn(),
     },
   };
@@ -298,7 +298,7 @@ describe('AuthService', () => {
       const r = await authService.verifyEmail('token');
 
       expect(spy).toHaveBeenCalled();
-      expect(spy).toHaveBeenCalledWith('token', { secret: 'at-secret' });
+      expect(spy).toHaveBeenCalledWith('token', { secret: 'secret' });
       expect(mockUserService.updateUser).toHaveBeenCalled();
       expect(mockUserService.updateUser).toHaveBeenCalledWith(1, {
         email_verified: true,
@@ -324,7 +324,7 @@ describe('AuthService', () => {
       }
 
       expect(spy).toHaveBeenCalled();
-      expect(spy).toHaveBeenCalledWith('token', { secret: 'at-secret' });
+      expect(spy).toHaveBeenCalledWith('token', { secret: 'secret' });
     });
   });
 
@@ -373,11 +373,26 @@ describe('AuthService', () => {
   });
   describe('sendForgotPasswordLink', () => {
     it('should do nothing when e-mail is invalid', async () => {
-      mockUserService.find.mockResolvedValueOnce(null);
+      mockUserService.find.mockRejectedValueOnce(
+        new BadRequestException('User not found'),
+      );
       const sendForgotPasswordLinkReturn =
         await authService.sendForgotPasswordLink('example@example.com');
       expect(sendForgotPasswordLinkReturn).toBeUndefined();
       expect(mockMailService.sendResetPasswordLink).not.toHaveBeenCalled();
+    });
+
+    it('should do nothing when e-mail is invalid', async () => {
+      mockUserService.find.mockResolvedValueOnce(user);
+      mockPrismaService.forgotPassword.upsert.mockRejectedValueOnce(
+        new Error('Unexpected Error'),
+      );
+      try {
+        await authService.sendForgotPasswordLink('example@example.com');
+      } catch (error) {
+        expect(error).toBeInstanceOf(InternalServerErrorException);
+        expect(error.message).toBe('Unexpected Error');
+      }
     });
 
     it('should call sendResetPasswordLink correctly', async () => {
@@ -387,7 +402,7 @@ describe('AuthService', () => {
         return 'token';
       });
       mockUserService.find.mockResolvedValueOnce(user);
-      mockPrismaService.forgotPassword.create.mockResolvedValueOnce(user);
+      mockPrismaService.forgotPassword.upsert.mockResolvedValueOnce(user);
       await authService.sendForgotPasswordLink('example@example.com');
 
       expect(mockMailService.sendResetPasswordLink).toHaveBeenCalled();
@@ -395,9 +410,19 @@ describe('AuthService', () => {
         'example@example.com',
         'yourfrontend.com/auth/password/reset/token',
       );
-      expect(mockPrismaService.forgotPassword.create).toHaveBeenCalled();
-      expect(mockPrismaService.forgotPassword.create).toHaveBeenCalledWith({
-        data: { email: 'example@example.com', token: 'token' },
+      expect(mockPrismaService.forgotPassword.upsert).toHaveBeenCalled();
+      expect(mockPrismaService.forgotPassword.upsert).toHaveBeenCalledWith({
+        create: {
+          email: 'example@example.com',
+          token: 'token',
+        },
+        update: {
+          email: 'example@example.com',
+          token: 'token',
+        },
+        where: {
+          email: 'example@example.com',
+        },
       });
       expect(spy).toHaveBeenCalled();
       expect(spy).toHaveBeenCalledWith(
@@ -456,7 +481,7 @@ describe('AuthService', () => {
         expect(error.message).toBe('Invalid token');
       }
     });
-    it('should throw NotFoundException when user no exist', async () => {
+    it('should throw BadRequestException when user no exist', async () => {
       const jwtService = moduleRef.get(JwtService);
       const spy = jest.spyOn(jwtService, 'verify');
       spy.mockImplementationOnce(() => {
@@ -469,12 +494,14 @@ describe('AuthService', () => {
         email: 'example@example.com',
       });
 
-      mockUserService.find.mockResolvedValue(null);
+      mockUserService.find.mockRejectedValueOnce(
+        new BadRequestException('User not found'),
+      );
       try {
         await authService.resetPassword('token', 'newPassword');
       } catch (error) {
         expect(spy).toHaveBeenCalled();
-        expect(error).toBeInstanceOf(NotFoundException);
+        expect(error).toBeInstanceOf(BadRequestException);
         expect(error.message).toBe('User not found');
       }
     });

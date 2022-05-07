@@ -5,6 +5,7 @@ import { UserController } from './user.controller';
 import { AppModule } from '../app.module';
 import { AuthController } from '../auth/auth.controller';
 import { MailService } from '../mail/mail.service';
+import { BadRequestException } from '@nestjs/common';
 
 const user = {
   email: 'test@gmail.com',
@@ -41,7 +42,7 @@ describe('User Flow', () => {
       await prisma.cleanDatabase();
     });
 
-    it('should signup', async () => {
+    it('should update user', async () => {
       const tokens = await authController.signupLocal({
         email: user.email,
         password: user.password,
@@ -62,10 +63,30 @@ describe('User Flow', () => {
         name: 'Updated name',
       });
     });
+
+    it('should throw a ForbiddenException when user not found', async () => {
+      const tokens = await authController.signupLocal({
+        email: user.email,
+        password: user.password,
+        name: user.name,
+      });
+
+      const decoded = decode(tokens.refresh_token);
+      const userId = Number(decoded?.sub);
+      try {
+        await userController.update(userId + 1, {
+          name: 'Updated name',
+          email: 'update@email.com',
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.message).toBe('User not found');
+      }
+    });
   });
 
   describe('getUser', () => {
-    beforeAll(async () => {
+    beforeEach(async () => {
       await prisma.cleanDatabase();
     });
 
@@ -86,6 +107,23 @@ describe('User Flow', () => {
         email_verified: false,
         name: user.name,
       });
+    });
+
+    it('should throw a BadRequestException when user not found', async () => {
+      const tokens = await authController.signupLocal({
+        email: user.email,
+        password: user.password,
+        name: user.name,
+      });
+
+      const decoded = decode(tokens.refresh_token);
+      const userId = Number(decoded?.sub);
+      try {
+        await userController.getUser(userId + 1);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.message).toBe('User not found');
+      }
     });
   });
 });

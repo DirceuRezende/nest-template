@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
-  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -34,6 +33,7 @@ export class AuthService {
     const tokens = await this.getTokens(user.id, user.email);
     await this.updateRtHash(user.id, tokens.refresh_token);
     this.sendEmailVerificationMail(user);
+
     return {
       ...tokens,
       user: {
@@ -144,7 +144,7 @@ export class AuthService {
 
   private sendEmailVerificationMail(user: User): void {
     const token = this.jwtService.sign(
-      { ...user },
+      { id: user.id },
       {
         secret: this.config.get<string>('JWT_SECRET'),
         expiresIn: '120m',
@@ -155,15 +155,17 @@ export class AuthService {
     const url = `${process.env.FRONTEND_URL}/auth/email/verify/${token}`;
 
     // Use the mailService to send the mail.
+
     this.mailService.sendUserConfirmation(user, 'BlaBla', url);
   }
 
   async verifyEmail(token: string): Promise<User> {
     // Validate token. Will throw error if it's not valid.
     let userFromTokenPayload: User;
+
     try {
       userFromTokenPayload = this.jwtService.verify(token, {
-        secret: this.config.get<string>('AT_SECRET'),
+        secret: this.config.get<string>('JWT_SECRET'),
       });
     } catch (error) {
       throw new BadRequestException('Invalid token');
@@ -227,34 +229,45 @@ export class AuthService {
    * @returns
    */
   async sendForgotPasswordLink(email: string) {
-    const user = await this.userService.find({ where: { email } });
-
-    // For security issues we won't throw an error if there is no user with the
-    // provided email address.
-    if (!user) {
-      return;
+    try {
+      await this.userService.find({ where: { email } });
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        return;
+      }
     }
+    try {
+      const token = await this.jwtService.sign(
+        { email },
+        {
+          secret: this.config.get<string>('JWT_SECRET'),
+          expiresIn: '120m',
+        },
+      );
 
-    // Sign a token that will expire in 5 minutes.
-    const token = await this.jwtService.sign(
-      { email },
-      {
-        secret: this.config.get<string>('JWT_SECRET'),
-        expiresIn: '120m',
-      },
-    );
+      // Create an entry in the Forgot Password table.
 
-    // Create an entry in the Forgot Password table.
-    await this.prisma.forgotPassword.create({
-      data: {
-        email,
-        token,
-      },
-    });
+      await this.prisma.forgotPassword.upsert({
+        where: {
+          email,
+        },
+        create: {
+          email,
+          token,
+        },
+        update: {
+          email,
+          token,
+        },
+      });
 
-    // Send email with the reset password link.
-    const url = `${process.env.FRONTEND_URL}/auth/password/reset/${token}`;
-    await this.mailService.sendResetPasswordLink(email, url);
+      // Send email with the reset password link.
+      const url = `${process.env.FRONTEND_URL}/auth/password/reset/${token}`;
+
+      await this.mailService.sendResetPasswordLink(email, url);
+    } catch (error) {
+      throw new InternalServerErrorException(error);
+    }
   }
 
   /**
@@ -285,20 +298,20 @@ export class AuthService {
       emailFromToken = this.jwtService.verify(token, {
         secret: this.config.get<string>('JWT_SECRET'),
       });
+      // emailFromToken = this.jwtService.decode(token);
     } catch (error) {
       throw new BadRequestException('Invalid token');
     }
+
     if (emailFromToken.email !== forgotToken.email) {
       throw new BadRequestException('Invalid token');
     }
 
     const hashedPassword = await argon.hash(newPassword);
+
     const user = await this.userService.find({
       where: { email: forgotToken.email },
     });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
 
     const updatedUser = await this.userService.updateUser(user.id, {
       password: hashedPassword,

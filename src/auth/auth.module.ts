@@ -7,9 +7,20 @@ import { AtStrategy, RtStrategy } from './strategies';
 
 import { MailModule } from '../mail/mail.module';
 import { UserModule } from '../user/user.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
-  imports: [JwtModule.register({}), MailModule, UserModule],
+  imports: [
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+      }),
+      inject: [ConfigService],
+    }),
+    MailModule,
+    UserModule,
+  ],
   controllers: [AuthController],
   providers: [AuthService, AtStrategy, RtStrategy],
 })

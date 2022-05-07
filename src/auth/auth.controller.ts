@@ -76,15 +76,18 @@ export class AuthController {
    * @returns
    */
   @Patch('password/update')
+  @HttpCode(HttpStatus.NO_CONTENT)
   async updatePassword(
-    @GetCurrentUser() user: number,
+    @GetCurrentUser() userId: number,
     @Body() body: UpdatePasswordDto,
-  ) {
-    return await this.authService.changePassword(
-      user,
+  ): Promise<void> {
+    await this.authService.changePassword(
+      userId,
       body.oldPassword,
       body.newPassword,
     );
+
+    return;
   }
 
   /**
@@ -93,8 +96,10 @@ export class AuthController {
    * @param {ForgotPasswordDto} body
    */
   @Post('password/forgotlink')
-  async sendForgotPasswordLink(@Body() body: ForgotPasswordDto) {
-    this.authService.sendForgotPasswordLink(body.email);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async sendForgotPasswordLink(@Body() body: ForgotPasswordDto): Promise<void> {
+    await this.authService.sendForgotPasswordLink(body.email);
+    return;
   }
 
   /**
@@ -104,7 +109,8 @@ export class AuthController {
    *   Data about the new password.
    */
   @Post('password/reset')
-  async resetPassword(@Body() body: ResetPasswordDto) {
-    this.authService.resetPassword(body.token, body.newPassword);
+  async resetPassword(@Body() body: ResetPasswordDto): Promise<void> {
+    await this.authService.resetPassword(body.token, body.newPassword);
+    return;
   }
 }

@@ -9,7 +9,7 @@ datasource db {
 
 model User {
   id             Int      @id @default(autoincrement())
-  email          String   @unique
+  email          String   @db.VarChar(255) @unique
   name           String   @db.VarChar(255)
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
@@ -22,7 +22,7 @@ model User {
 
 model ForgotPassword {
   id         Int      @id @default(autoincrement())
-  email      String   @db.VarChar(255)
+  email      String   @db.VarChar(255) @unique
   token      String   @db.VarChar(400)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

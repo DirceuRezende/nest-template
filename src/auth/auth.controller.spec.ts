@@ -5,8 +5,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthController } from './auth.controller';
 import { Tokens } from './types';
 import { MailService } from '../mail/mail.service';
-import { ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AppModule } from '../app.module';
+import { JwtModule, JwtService } from '@nestjs/jwt';
+import * as argon from 'argon2';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 const user = {
   email: 'test@gmail.com',
@@ -22,7 +29,16 @@ describe('Auth Flow', () => {
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [
+        AppModule,
+        JwtModule.registerAsync({
+          imports: [ConfigModule],
+          useFactory: async (configService: ConfigService) => ({
+            secret: configService.get<string>('JWT_SECRET'),
+          }),
+          inject: [ConfigService],
+        }),
+      ],
     }).compile();
 
     prisma = moduleRef.get(PrismaService);
@@ -259,6 +275,395 @@ describe('Auth Flow', () => {
       // refreshed tokens should be different
       expect(tokens.access_token).not.toBe(at);
       expect(tokens.refresh_token).not.toBe(rt);
+    });
+  });
+
+  describe('verifyEmail', () => {
+    beforeEach(async () => {
+      await prisma.cleanDatabase();
+    });
+
+    it('should verify the user', async () => {
+      // signup and save refresh token
+      const mailService = moduleRef.get(MailService);
+      const spyMail = jest.spyOn(mailService, 'sendUserConfirmation');
+      spyMail.mockClear();
+      spyMail.mockReturnValue(Promise.resolve());
+
+      const _tokens = await authController.signupLocal({
+        email: user.email,
+        password: user.password,
+        name: user.name,
+      });
+
+      const rt = _tokens.refresh_token;
+      // get user id from refresh token
+      // also possible to get using prisma like above
+      // but since we have the rt already, why not just decoding it
+      const decoded = decode(rt);
+      const userId = Number(decoded?.sub);
+      const jwtService = moduleRef.get(JwtService);
+      const spy = jest.spyOn(jwtService, 'verify');
+      spy.mockImplementationOnce(() => {
+        return { id: userId };
+      });
+      const token = spyMail.mock.calls[0][2].split('/').at(-1);
+
+      await authController.verifyEmail({
+        token,
+      });
+      const prismaUser = await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+      expect(prismaUser.email_verified).toBeTruthy();
+    });
+
+    it('should throw BadRequestException when the token is invalid', async () => {
+      const _tokens = await authController.signupLocal({
+        email: user.email,
+        password: user.password,
+        name: user.name,
+      });
+
+      const rt = _tokens.refresh_token;
+
+      // get user id from refresh token
+      // also possible to get using prisma like above
+      // but since we have the rt already, why not just decoding it
+      const decoded = decode(rt);
+      const userId = Number(decoded?.sub);
+
+      const jwtService = moduleRef.get(JwtService);
+      const spy = jest.spyOn(jwtService, 'verify');
+      spy.mockImplementationOnce(() => {
+        throw new Error();
+      });
+
+      try {
+        await authController.verifyEmail({
+          token: 'token',
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.message).toBe('Invalid token');
+      }
+
+      const prismaUser = await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+      expect(prismaUser.email_verified).toBeFalsy();
+    });
+  });
+
+  describe('updatePassword', () => {
+    beforeEach(async () => {
+      await prisma.cleanDatabase();
+    });
+
+    it('should update password', async () => {
+      // signup and save refresh token
+      const _tokens = await authController.signupLocal({
+        email: user.email,
+        password: user.password,
+        name: user.name,
+      });
+
+      const rt = _tokens.refresh_token;
+
+      // get user id from refresh token
+      // also possible to get using prisma like above
+      // but since we have the rt already, why not just decoding it
+      const decoded = decode(rt);
+      const userId = Number(decoded?.sub);
+
+      await authController.updatePassword(userId, {
+        oldPassword: user.password,
+        newPassword: 'newPassword',
+      });
+      const prismaUser = await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+      const newPasswordHash = await argon.verify(
+        prismaUser.password,
+        'newPassword',
+      );
+      expect(newPasswordHash).toBeTruthy();
+    });
+
+    it('should throw error', async () => {
+      const _tokens = await authController.signupLocal({
+        email: user.email,
+        password: user.password,
+        name: user.name,
+      });
+
+      const rt = _tokens.refresh_token;
+
+      // get user id from refresh token
+      // also possible to get using prisma like above
+      // but since we have the rt already, why not just decoding it
+      const decoded = decode(rt);
+      const userId = Number(decoded?.sub);
+      try {
+        await authController.updatePassword(userId, {
+          oldPassword: 'incorrectPassword',
+          newPassword: 'newPassword',
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(UnauthorizedException);
+        expect(error.message).toBe('Old password not correct');
+      }
+
+      const prismaUser = await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+      const oldPasswordHash = await argon.verify(
+        prismaUser.password,
+        user.password,
+      );
+      expect(oldPasswordHash).toBeTruthy();
+    });
+  });
+
+  describe('sendForgotPasswordLink', () => {
+    beforeEach(async () => {
+      await prisma.cleanDatabase();
+      jest.clearAllMocks();
+    });
+
+    it('should send forgot password link', async () => {
+      mailService = moduleRef.get(MailService);
+
+      const spy = jest.spyOn(mailService, 'sendResetPasswordLink');
+      spy.mockReturnValueOnce(Promise.resolve());
+
+      // signup and save refresh token
+      await authController.signupLocal({
+        email: user.email,
+        password: user.password,
+        name: user.name,
+      });
+
+      await authController.sendForgotPasswordLink({
+        email: user.email,
+      });
+
+      const forgotPassword = await prisma.forgotPassword.findFirst({
+        where: {
+          email: user.email,
+        },
+      });
+
+      expect(forgotPassword).toBeDefined();
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('should return successfully even if user not found', async () => {
+      mailService = moduleRef.get(MailService);
+
+      const spy = jest.spyOn(mailService, 'sendResetPasswordLink');
+
+      spy.mockReturnValue(Promise.resolve());
+      await prisma.forgotPassword.delete({
+        where: {
+          email: user.email,
+        },
+      });
+
+      await authController.sendForgotPasswordLink({
+        email: user.email,
+      });
+
+      const forgotPassword = await prisma.forgotPassword.findFirst({
+        where: {
+          email: user.email,
+        },
+      });
+
+      expect(forgotPassword).toBe(null);
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resetPassword', () => {
+    beforeEach(async () => {
+      await prisma.cleanDatabase();
+    });
+
+    it('should reset password', async () => {
+      // signup and save refresh token
+      await authController.signupLocal({
+        email: user.email,
+        password: user.password,
+        name: user.name,
+      });
+
+      await authController.sendForgotPasswordLink({
+        email: user.email,
+      });
+
+      const forgotPassword = await prisma.forgotPassword.findFirst({
+        where: {
+          email: user.email,
+        },
+      });
+
+      await authController.resetPassword({
+        newPassword: 'newPassword',
+        token: forgotPassword.token,
+      });
+
+      const prismaUser = await prisma.user.findUnique({
+        where: {
+          email: user.email,
+        },
+      });
+      const isNewPassword = await argon.verify(
+        prismaUser.password,
+        'newPassword',
+      );
+      expect(isNewPassword).toBeTruthy();
+    });
+
+    it('should throw BadRequestException when the token is invalid', async () => {
+      await authController.signupLocal({
+        email: user.email,
+        password: user.password,
+        name: user.name,
+      });
+
+      await authController.sendForgotPasswordLink({
+        email: user.email,
+      });
+
+      try {
+        await authController.resetPassword({
+          newPassword: 'newPassword',
+          token: 'token',
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        const prismaUser = await prisma.user.findUnique({
+          where: {
+            email: user.email,
+          },
+        });
+        const isOldPassword = await argon.verify(
+          prismaUser.password,
+          user.password,
+        );
+        expect(isOldPassword).toBeTruthy();
+      }
+    });
+
+    it('should throw BadRequestException when the token is invalid', async () => {
+      await authController.signupLocal({
+        email: user.email,
+        password: user.password,
+        name: user.name,
+      });
+
+      await prisma.forgotPassword.create({
+        data: {
+          token: 'invalidToken',
+          email: user.email,
+        },
+      });
+
+      try {
+        await authController.resetPassword({
+          newPassword: 'newPassword',
+          token: 'token',
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        const prismaUser = await prisma.user.findUnique({
+          where: {
+            email: user.email,
+          },
+        });
+        const isOldPassword = await argon.verify(
+          prismaUser.password,
+          user.password,
+        );
+        expect(isOldPassword).toBeTruthy();
+      }
+    });
+    it('should throw BadRequestException when the token is invalid', async () => {
+      await authController.signupLocal({
+        email: user.email,
+        password: user.password,
+        name: user.name,
+      });
+      const jwtService = moduleRef.get(JwtService);
+      const config = moduleRef.get(ConfigService);
+      const token = await jwtService.sign(
+        { email: user.email + 1, id: 1 },
+        {
+          secret: config.get<string>('JWT_SECRET'),
+          expiresIn: '120m',
+        },
+      );
+      await prisma.forgotPassword.create({
+        data: {
+          token: token,
+          email: user.email,
+        },
+      });
+
+      try {
+        await authController.resetPassword({
+          newPassword: 'newPassword',
+          token,
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        const prismaUser = await prisma.user.findUnique({
+          where: {
+            email: user.email,
+          },
+        });
+        const isOldPassword = await argon.verify(
+          prismaUser.password,
+          user.password,
+        );
+        expect(isOldPassword).toBeTruthy();
+      }
+    });
+    it('should throw BadRequestException when the token is invalid', async () => {
+      const jwtService = moduleRef.get(JwtService);
+      const config = moduleRef.get(ConfigService);
+      const token = await jwtService.sign(
+        { email: user.email, id: 1 },
+        {
+          secret: config.get<string>('JWT_SECRET'),
+          expiresIn: '120m',
+        },
+      );
+      await prisma.forgotPassword.create({
+        data: {
+          token: token,
+          email: user.email,
+        },
+      });
+
+      try {
+        await authController.resetPassword({
+          newPassword: 'newPassword123',
+          token,
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.message).toBe('User not found');
+      }
     });
   });
 });

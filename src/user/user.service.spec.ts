@@ -252,7 +252,8 @@ describe('UserService', () => {
       expect(mockPrismaService.user.updateMany).toHaveBeenCalled();
       expect(returnedUser).toBe(1);
     });
-    it('should throw a InternalServerErrorException Prisma User Update throw a Error', async () => {
+
+    it('should throw a InternalServerErrorException when prisma.user.update throw a Error', async () => {
       mockPrismaService.user.updateMany.mockImplementationOnce(() => {
         throw new Error('Unexpected Error');
       });
@@ -268,6 +269,24 @@ describe('UserService', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(InternalServerErrorException);
         expect(error.message).toBe('Unexpected Error');
+      }
+    });
+    it('should throw a BadRequestException when user not found', async () => {
+      mockPrismaService.user.updateMany.mockImplementationOnce(() => {
+        throw new PrismaClientKnownRequestError('Error', 'P2025', '1');
+      });
+      try {
+        await userService.updateMany({
+          data: {
+            name: 'Change Name',
+          },
+          where: {
+            id: 1,
+          },
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.message).toBe('User not found');
       }
     });
   });

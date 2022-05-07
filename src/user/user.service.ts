@@ -9,7 +9,6 @@ import { Prisma, User } from '@prisma/client';
 import { CreateUserDto } from 'src/auth/dto/create-user.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import * as argon from 'argon2';
-import { ResponseUserDto } from './dto/reponse-user.dto';
 
 export type UpdateProperties = Partial<Omit<User, 'updated_at' | 'created_at'>>;
 
@@ -80,6 +79,12 @@ export class UserService {
       });
       return updatedUser;
     } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new BadRequestException('User not found');
+        }
+      }
+
       throw new InternalServerErrorException(error);
     }
   }
@@ -91,6 +96,11 @@ export class UserService {
       const updatedUser = await this.prismaService.user.updateMany(properties);
       return updatedUser;
     } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new BadRequestException('User not found');
+        }
+      }
       throw new InternalServerErrorException(error);
     }
   }
