@@ -472,11 +472,6 @@ describe('Auth Flow', () => {
       const spy = jest.spyOn(mailService, 'sendResetPasswordLink');
 
       spy.mockReturnValue(Promise.resolve());
-      await prisma.forgotPassword.delete({
-        where: {
-          email: user.email,
-        },
-      });
 
       await authController.sendForgotPasswordLink({
         email: user.email,

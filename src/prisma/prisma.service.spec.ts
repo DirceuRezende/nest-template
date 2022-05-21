@@ -39,15 +39,15 @@ describe('UserService', () => {
   });
 
   describe('cleanDatabase', () => {
-    it('should call ', async () => {
+    it('should clean database', async () => {
       const clear = await prismaService.cleanDatabase();
-      await expect(clear).toEqual([{ count: 1 }]);
+      await expect(clear).toBeTruthy();
     });
-    it('should call ', async () => {
+    it('should not clean database', async () => {
       const configService = moduleRef.get(ConfigService);
       jest.spyOn(configService, 'get').mockReturnValueOnce('production');
       const clear = await prismaService.cleanDatabase();
-      await expect(clear).toEqual(undefined);
+      await expect(clear).toBeFalsy();
     });
   });
 });

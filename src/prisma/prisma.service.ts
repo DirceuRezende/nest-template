@@ -19,18 +19,41 @@ export class PrismaService
     });
   }
 
-  async onModuleInit() {
+  async onModuleInit(): Promise<void> {
     await this.$connect();
   }
 
-  async onModuleDestroy() {
+  async onModuleDestroy(): Promise<void> {
     await this.$disconnect();
   }
 
-  async cleanDatabase() {
-    if (this.config.get<string>('NODE_ENV') === 'production') return;
+  async cleanDatabase(): Promise<boolean> {
+    if (this.config.get<string>('NODE_ENV') === 'production') return false;
 
     // teardown logic
-    return Promise.all([this.user.deleteMany()]);
+    const allKeys = Object.keys(this);
+    const keys = [
+      '_middlewares',
+      '_transactionId',
+      '_rejectOnNotFound',
+      '_clientVersion',
+      '_activeProvider',
+      '_clientEngineType',
+      '_errorFormat',
+      '_dmmf',
+      '_previewFeatures',
+      '_engineConfig',
+      '_engine',
+      '_fetcher',
+      'config',
+    ];
+    const modelNames = allKeys.filter((property) => !keys.includes(property));
+    await Promise.all(
+      modelNames.map((modelName) => {
+        return this[modelName].deleteMany();
+      }),
+    );
+
+    return true;
   }
 }
