@@ -39,7 +39,7 @@ export class MailService {
       context: {
         name: email,
         url,
-        app_name: 'wegweg',
+        app_name: 'reset password',
       },
     });
   }

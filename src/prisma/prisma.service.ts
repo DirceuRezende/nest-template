@@ -7,7 +7,7 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
-  constructor(config: ConfigService) {
+  constructor(private config: ConfigService) {
     const url = config.get<string>('DATABASE_URL');
 
     super({
@@ -28,7 +28,7 @@ export class PrismaService
   }
 
   async cleanDatabase() {
-    if (process.env.NODE_ENV === 'production') return;
+    if (this.config.get<string>('NODE_ENV') === 'production') return;
 
     // teardown logic
     return Promise.all([this.user.deleteMany()]);
