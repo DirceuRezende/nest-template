@@ -15,10 +15,10 @@ services:
     image: postgres
     restart: always
     environment:
-      - POSTGRES_USER=docker
-      - POSTGRES_PASSWORD=docker
-      - POSTGRES_DB=application
+      - POSTGRES_USER=docker_test
+      - POSTGRES_PASSWORD=docker_test
+      - POSTGRES_DB=application_test
     volumes:
-      - ./database-data:/var/lib/postgresql/data
+      - ./database-data_test:/var/lib/postgresql/data
     ports:
-      - 5434:5432
+      - 5433:5432

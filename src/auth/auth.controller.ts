@@ -34,15 +34,16 @@ export class AuthController {
 
   @Public()
   @Post('local/signin')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.NO_CONTENT)
   signinLocal(@Body() dto: AuthDto): Promise<Auth> {
     return this.authService.signinLocal(dto);
   }
 
   @Post('logout')
-  @HttpCode(HttpStatus.OK)
-  logout(@GetCurrentUserId() userId: number): Promise<boolean> {
-    return this.authService.logout(userId);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async logout(@GetCurrentUserId() userId: number): Promise<void> {
+    await this.authService.logout(userId);
+    return;
   }
 
   @Public()
@@ -78,7 +79,7 @@ export class AuthController {
   @Patch('password/update')
   @HttpCode(HttpStatus.NO_CONTENT)
   async updatePassword(
-    @GetCurrentUser() userId: number,
+    @GetCurrentUserId() userId: number,
     @Body() body: UpdatePasswordDto,
   ): Promise<void> {
     await this.authService.changePassword(
@@ -109,6 +110,7 @@ export class AuthController {
    *   Data about the new password.
    */
   @Post('password/reset')
+  @HttpCode(HttpStatus.NO_CONTENT)
   async resetPassword(@Body() body: ResetPasswordDto): Promise<void> {
     await this.authService.resetPassword(body.token, body.newPassword);
     return;

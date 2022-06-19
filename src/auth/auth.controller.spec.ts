@@ -143,7 +143,7 @@ describe('Auth Flow', () => {
 
     it('should pass if call to non existent user', async () => {
       const result = await authController.logout(4);
-      expect(result).toBeDefined();
+      expect(result).toBeUndefined();
     });
 
     it('should logout', async () => {

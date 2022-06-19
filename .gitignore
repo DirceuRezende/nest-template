@@ -2,6 +2,7 @@
 /dist
 /node_modules
 /database-data
+/database-data_test
 .env
 
 # Logs

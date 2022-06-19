@@ -200,7 +200,6 @@ export class AuthService {
     newPassword: string,
   ): Promise<any> {
     // Probably the password is not included in the user object. Thus, we need to reload the user and include the password.
-
     const user = await this.userService.findById(id);
 
     // Check if the old password is correct.
@@ -215,6 +214,7 @@ export class AuthService {
 
     // Hash new password & update entity.
     const password = await argon.hash(newPassword);
+
     return await this.userService.updateUser(user.id, {
       password,
     });
@@ -298,7 +298,6 @@ export class AuthService {
       emailFromToken = this.jwtService.verify(token, {
         secret: this.config.get<string>('JWT_SECRET'),
       });
-      // emailFromToken = this.jwtService.decode(token);
     } catch (error) {
       throw new BadRequestException('Invalid token');
     }
