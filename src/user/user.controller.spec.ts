@@ -59,7 +59,6 @@ describe('User Flow', () => {
 
       expect(updateResponse).toEqual({
         email: 'update@email.com',
-        email_verified: false,
         name: 'Updated name',
       });
     });

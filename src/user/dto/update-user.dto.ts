@@ -1,12 +1,20 @@
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsString, ValidateIf } from 'class-validator';
 
 export class UpdateUserDto {
-  @IsNotEmpty()
+  /**
+   * The email from the user.
+   * @example "email@email.com"
+   */
   @IsString()
   @IsEmail()
-  email: string;
+  @ValidateIf((object, value) => value !== undefined)
+  email?: string;
 
-  @IsNotEmpty()
+  /**
+   * The name from the user.
+   * @example "Name Surname"
+   */
   @IsString()
-  name: string;
+  @ValidateIf((object, value) => value !== undefined)
+  name?: string;
 }

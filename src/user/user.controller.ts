@@ -9,24 +9,27 @@ import {
 
 import { GetCurrentUserId } from '../common/decorators';
 import { UserService } from './user.service';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserDto, ResponseUserDto } from './dto';
 
-import { ResponseUserDto } from './dto/reponse-user.dto';
-
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+@ApiBearerAuth()
+@ApiTags('user')
 @Controller('user')
 export class UserController {
   constructor(private userService: UserService) {}
 
   @Put('')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   async update(
     @GetCurrentUserId() userId: number,
     @Body() dto: UpdateUserDto,
   ): Promise<ResponseUserDto> {
+    if (!dto.email && !dto.name) {
+      return;
+    }
     const user = await this.userService.updateUser(userId, dto);
     const responseUser = {
       email: user.email,
-      email_verified: user.email_verified,
       name: user.name,
     };
     return responseUser;

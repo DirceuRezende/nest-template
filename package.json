@@ -39,6 +39,7 @@
     "@nestjs/mapped-types": "*",
     "@nestjs/passport": "^8.2.1",
     "@nestjs/platform-express": "^8.0.0",
+    "@nestjs/swagger": "^5.2.1",
     "@prisma/client": "^3.10.0",
     "argon2": "^0.28.5",
     "class-transformer": "^0.5.1",
@@ -50,6 +51,7 @@
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^7.2.0",
+    "swagger-ui-express": "^4.4.0",
     "winston": "^3.7.2"
   },
   "devDependencies": {
