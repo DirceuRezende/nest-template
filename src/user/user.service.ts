@@ -69,6 +69,17 @@ export class UserService {
 
   async updateUser(id: number, properties: UpdateProperties): Promise<User> {
     try {
+      if (properties.email) {
+        const hasEmail = await this.prismaService.user.findFirst({
+          where: {
+            email: properties.email,
+          },
+        });
+        if (hasEmail)
+          throw new BadRequestException(
+            'E-mail already used from another user!',
+          );
+      }
       const updatedUser = await this.prismaService.user.update({
         data: {
           ...properties,
@@ -83,6 +94,8 @@ export class UserService {
         if (error.code === 'P2025') {
           throw new BadRequestException('User not found');
         }
+      } else if (error.message === 'E-mail already used from another user!') {
+        throw error;
       }
 
       throw new InternalServerErrorException(error);

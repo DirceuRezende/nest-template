@@ -14,6 +14,7 @@ import { AppModule } from '../app.module';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import * as argon from 'argon2';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BlockListService } from '../blocklist/blocklist.service';
 
 const user = {
   email: 'test@gmail.com',
@@ -26,7 +27,9 @@ describe('Auth Flow', () => {
   let authController: AuthController;
   let mailService: MailService;
   let moduleRef: TestingModule;
-
+  const mockRepository = {
+    set: jest.fn(),
+  };
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
       imports: [
@@ -39,11 +42,15 @@ describe('Auth Flow', () => {
           inject: [ConfigService],
         }),
       ],
-    }).compile();
+    })
+      .overrideProvider(BlockListService)
+      .useValue(mockRepository)
+      .compile();
 
     prisma = moduleRef.get(PrismaService);
     authController = moduleRef.get(AuthController);
     mailService = moduleRef.get(MailService);
+
     const spy = jest.spyOn(mailService, 'sendUserConfirmation');
     spy.mockReturnValue(Promise.resolve());
   });
@@ -71,6 +78,11 @@ describe('Auth Flow', () => {
     it('should throw on duplicate user signup', async () => {
       let tokens: Tokens | undefined;
       try {
+        await authController.signupLocal({
+          email: user.email,
+          password: user.password,
+          name: user.name,
+        });
         tokens = await authController.signupLocal({
           email: user.email,
           password: user.password,
@@ -141,8 +153,14 @@ describe('Auth Flow', () => {
       await prisma.cleanDatabase();
     });
 
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
     it('should pass if call to non existent user', async () => {
-      const result = await authController.logout(4);
+      mockRepository.set.mockResolvedValueOnce(null);
+      const result = await authController.logout('Bearer token', 4);
+      expect(mockRepository.set).toHaveBeenCalledTimes(1);
       expect(result).toBeUndefined();
     });
 
@@ -163,7 +181,9 @@ describe('Auth Flow', () => {
       expect(userFromDb?.hashedRt).toBeTruthy();
 
       // logout
-      await authController.logout(userFromDb?.id);
+      mockRepository.set.mockResolvedValueOnce(null);
+      await authController.logout('Bearer token', userFromDb?.id);
+      expect(mockRepository.set).toHaveBeenCalledTimes(1);
 
       userFromDb = await prisma.user.findFirst({
         where: {
@@ -209,7 +229,9 @@ describe('Auth Flow', () => {
       const userId = Number(decoded?.sub);
 
       // logout the user so the hashedRt is set to null
-      await authController.logout(userId);
+      mockRepository.set.mockResolvedValueOnce(null);
+      await authController.logout('Bearer token', userId);
+      expect(mockRepository.set).toHaveBeenCalledTimes(1);
 
       let tokens: Tokens | undefined;
       try {
@@ -284,7 +306,6 @@ describe('Auth Flow', () => {
     });
 
     it('should verify the user', async () => {
-      // signup and save refresh token
       const mailService = moduleRef.get(MailService);
       const spyMail = jest.spyOn(mailService, 'sendUserConfirmation');
       spyMail.mockClear();

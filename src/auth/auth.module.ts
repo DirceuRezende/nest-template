@@ -8,6 +8,8 @@ import { AtStrategy, RtStrategy } from './strategies';
 import { MailModule } from '../mail/mail.module';
 import { UserModule } from '../user/user.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BlockListModule } from '../blocklist/blocklist.module';
+import { BlockListService } from '../blocklist/blocklist.service';
 
 @Module({
   imports: [
@@ -20,8 +22,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     }),
     MailModule,
     UserModule,
+    BlockListModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, AtStrategy, RtStrategy],
+  providers: [AuthService, AtStrategy, RtStrategy, BlockListService],
 })
 export class AuthModule {}

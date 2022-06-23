@@ -22,3 +22,14 @@ services:
       - ./database-data_test:/var/lib/postgresql/data
     ports:
       - 5433:5432
+  cache:
+    image: redis
+    restart: always
+    ports:
+      - 6379:6379
+    command: redis-server
+    volumes: 
+      - ./cache:/data
+volumes:
+  cache:
+    driver: local

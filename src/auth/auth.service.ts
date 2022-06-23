@@ -151,16 +151,12 @@ export class AuthService {
       },
     );
 
-    // The url the user can click in the mail in order to verify the email address.
     const url = `${process.env.FRONTEND_URL}/auth/email/verify/${token}`;
-
-    // Use the mailService to send the mail.
 
     this.mailService.sendUserConfirmation(user, 'BlaBla', url);
   }
 
   async verifyEmail(token: string): Promise<User> {
-    // Validate token. Will throw error if it's not valid.
     let userFromTokenPayload: User;
 
     try {

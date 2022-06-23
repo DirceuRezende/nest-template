@@ -3,6 +3,7 @@
 /node_modules
 /database-data
 /database-data_test
+/cache
 .env
 
 # Logs

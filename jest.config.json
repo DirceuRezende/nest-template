@@ -6,5 +6,5 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
-  "modulePathIgnorePatterns": ["database-data"]
+  "modulePathIgnorePatterns": ["database-data", "database-data_test", "cache"]
 }

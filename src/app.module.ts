@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { LoggerModule } from './logger/logger.module';
 import { MailModule } from './mail/mail.module';
 import { UserModule } from './user/user.module';
+import { BlockListModule } from './blocklist/blocklist.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { UserModule } from './user/user.module';
     LoggerModule,
     MailModule,
     UserModule,
+    BlockListModule,
   ],
   providers: [
     {

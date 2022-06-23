@@ -38,7 +38,7 @@ describe('User Flow', () => {
   });
 
   describe('update', () => {
-    beforeAll(async () => {
+    beforeEach(async () => {
       await prisma.cleanDatabase();
     });
 
@@ -64,23 +64,50 @@ describe('User Flow', () => {
     });
 
     it('should throw a ForbiddenException when user not found', async () => {
-      const tokens = await authController.signupLocal({
-        email: user.email,
-        password: user.password,
-        name: user.name,
-      });
-
-      const decoded = decode(tokens.refresh_token);
-      const userId = Number(decoded?.sub);
       try {
+        const tokens = await authController.signupLocal({
+          email: user.email,
+          password: user.password,
+          name: user.name,
+        });
+
+        const decoded = decode(tokens.refresh_token);
+        const userId = Number(decoded?.sub);
+
         await userController.update(userId + 1, {
-          name: 'Updated name',
+          name: 'updated name',
           email: 'update@email.com',
         });
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
         expect(error.message).toBe('User not found');
       }
+    });
+
+    it('should throw a ForbiddenException when user not found', async () => {
+      try {
+        const tokens = await authController.signupLocal({
+          email: user.email,
+          password: user.password,
+          name: user.name,
+        });
+
+        const decoded = decode(tokens.refresh_token);
+        const userId = Number(decoded?.sub);
+
+        await userController.update(userId, {
+          name: 'updated name',
+          email: user.email,
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.message).toBe('E-mail already used from another user!');
+      }
+    });
+
+    it('should return undefined when name and e-mail are empty', async () => {
+      const r = await userController.update(1, {});
+      expect(r).toBeUndefined();
     });
   });
 

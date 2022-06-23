@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -10,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { BlockListService } from '../blocklist/blocklist.service';
 
 import { Public, GetCurrentUserId, GetCurrentUser } from '../common/decorators';
 import { RtGuard } from '../common/guards';
@@ -27,7 +29,10 @@ import { Auth, Tokens } from './types';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private blockListService: BlockListService,
+  ) {}
 
   @Public()
   @Post('local/signup')
@@ -45,8 +50,15 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@GetCurrentUserId() userId: number): Promise<void> {
+  async logout(
+    @Headers('authorization') authorization: string,
+    @GetCurrentUserId() userId: number,
+  ): Promise<void> {
     await this.authService.logout(userId);
+    await this.blockListService.set(`block:${authorization.split(' ')[1]}`, {
+      userId,
+    });
+
     return;
   }
 
