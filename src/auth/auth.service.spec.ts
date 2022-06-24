@@ -367,7 +367,7 @@ describe('AuthService', () => {
         expect(mockUserService.updateUser).toHaveBeenCalled();
       } catch (error) {
         expect(error).toBeInstanceOf(UnauthorizedException);
-        expect(error.message).toBe('Old password not correct');
+        expect(error.message).toBe('Old password is not correct');
       }
     });
   });
@@ -429,6 +429,40 @@ describe('AuthService', () => {
         { email: 'example@example.com' },
         { expiresIn: '120m', secret: 'secret' },
       );
+    });
+  });
+
+  describe('resendVerifyEmail', () => {
+    it('should resend verify e-mail', async () => {
+      mockUserService.findById.mockResolvedValueOnce({
+        ...user,
+        id: '1',
+      });
+      await authService.resendVerifyEmail(1);
+      expect(mockMailService.sendUserConfirmation).toHaveBeenCalled();
+    });
+
+    it('should throw an error when unexpected error occurs', async () => {
+      mockUserService.findById.mockRejectedValueOnce(
+        new InternalServerErrorException('Unexpected error'),
+      );
+      try {
+        await authService.resendVerifyEmail(1);
+      } catch (error) {
+        expect(error).toBeInstanceOf(InternalServerErrorException);
+        expect(error.message).toBe('Unexpected error');
+      }
+    });
+    it('should throw an error when user does not exist', async () => {
+      mockUserService.findById.mockRejectedValueOnce(
+        new BadRequestException('User does not exist'),
+      );
+      try {
+        await authService.resendVerifyEmail(1);
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Access Denied');
+      }
     });
   });
 

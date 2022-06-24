@@ -9,6 +9,7 @@ import {
   BadRequestException,
   CACHE_MODULE_OPTIONS,
   ForbiddenException,
+  InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AppModule } from '../app.module';
@@ -16,7 +17,7 @@ import { JwtModule, JwtService } from '@nestjs/jwt';
 import * as argon from 'argon2';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BlockListService } from '../blocklist/blocklist.service';
-import { BlockListModule } from 'src/blocklist/blocklist.module';
+import { UserService } from '../user/user.service';
 
 const user = {
   email: 'test@gmail.com',
@@ -29,6 +30,7 @@ describe('Auth Flow', () => {
   let authController: AuthController;
   let mailService: MailService;
   let moduleRef: TestingModule;
+  let spySendUserConfirmation: jest.SpyInstance<Promise<void>>;
   const mockRepository = {
     set: jest.fn(),
   };
@@ -57,8 +59,8 @@ describe('Auth Flow', () => {
     authController = moduleRef.get(AuthController);
     mailService = moduleRef.get(MailService);
 
-    const spy = jest.spyOn(mailService, 'sendUserConfirmation');
-    spy.mockReturnValue(Promise.resolve());
+    spySendUserConfirmation = jest.spyOn(mailService, 'sendUserConfirmation');
+    spySendUserConfirmation.mockReturnValue(Promise.resolve());
   });
 
   afterAll(async () => {
@@ -308,15 +310,11 @@ describe('Auth Flow', () => {
 
   describe('verifyEmail', () => {
     beforeEach(async () => {
+      jest.clearAllMocks();
       await prisma.cleanDatabase();
     });
 
     it('should verify the user', async () => {
-      const mailService = moduleRef.get(MailService);
-      const spyMail = jest.spyOn(mailService, 'sendUserConfirmation');
-      spyMail.mockClear();
-      spyMail.mockReturnValue(Promise.resolve());
-
       const _tokens = await authController.signupLocal({
         email: user.email,
         password: user.password,
@@ -334,7 +332,7 @@ describe('Auth Flow', () => {
       spy.mockImplementationOnce(() => {
         return { id: userId };
       });
-      const token = spyMail.mock.calls[0][2].split('/').at(-1);
+      const token = spySendUserConfirmation.mock.calls[0][2].split('/').at(-1);
 
       await authController.verifyEmail({
         token,
@@ -383,6 +381,64 @@ describe('Auth Flow', () => {
         },
       });
       expect(prismaUser.email_verified).toBeFalsy();
+    });
+  });
+
+  describe('resendVerifyEmail', () => {
+    beforeEach(async () => {
+      jest.clearAllMocks();
+      await prisma.cleanDatabase();
+    });
+
+    it('should resend verify e-mail', async () => {
+      await authController.signupLocal({
+        email: user.email,
+        password: user.password,
+        name: user.name,
+      });
+
+      const createdUser = await prisma.user.findUnique({
+        where: {
+          email: user.email,
+        },
+      });
+
+      await authController.resendVerifyEmail(createdUser.id);
+
+      expect(spySendUserConfirmation).toHaveBeenCalled();
+    });
+
+    it('should throw a ForbiddenException error when user does not exist', async () => {
+      try {
+        await authController.resendVerifyEmail(0);
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.message).toBe('Access Denied');
+      }
+    });
+    it('should throw an InternalServerErrorException error when an unexpected error ocurred', async () => {
+      try {
+        await authController.signupLocal({
+          email: user.email,
+          password: user.password,
+          name: user.name,
+        });
+
+        const createdUser = await prisma.user.findUnique({
+          where: {
+            email: user.email,
+          },
+        });
+        const userService = moduleRef.get(UserService);
+        const spy = jest.spyOn(userService, 'findById');
+        spy.mockRejectedValueOnce(
+          new InternalServerErrorException('Unexpected Error'),
+        );
+        await authController.resendVerifyEmail(createdUser.id);
+      } catch (error) {
+        expect(error).toBeInstanceOf(InternalServerErrorException);
+        expect(error.message).toBe('Unexpected Error');
+      }
     });
   });
 
@@ -444,7 +500,7 @@ describe('Auth Flow', () => {
         });
       } catch (error) {
         expect(error).toBeInstanceOf(UnauthorizedException);
-        expect(error.message).toBe('Old password not correct');
+        expect(error.message).toBe('Old password is not correct');
       }
 
       const prismaUser = await prisma.user.findUnique({

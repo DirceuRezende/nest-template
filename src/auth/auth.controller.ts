@@ -83,8 +83,8 @@ export class AuthController {
 
   @Get('email/verify')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async sendVerifyEmail(@GetCurrentUserId() userId: number): Promise<void> {
-    await this.authService.sendVerifyEmail(userId);
+  async resendVerifyEmail(@GetCurrentUserId() userId: number): Promise<void> {
+    await this.authService.resendVerifyEmail(userId);
     return;
   }
 

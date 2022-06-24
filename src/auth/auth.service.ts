@@ -156,7 +156,7 @@ export class AuthService {
     this.mailService.sendUserConfirmation(user, 'BlaBla', url);
   }
 
-  async sendVerifyEmail(userId: number): Promise<void> {
+  async resendVerifyEmail(userId: number): Promise<void> {
     let user: User;
     try {
       user = await this.userService.findById(userId);
@@ -218,7 +218,7 @@ export class AuthService {
     );
 
     if (!isOldPasswordCorrect) {
-      throw new UnauthorizedException('Old password not correct');
+      throw new UnauthorizedException('Old password is not correct');
     }
 
     // Hash new password & update entity.
