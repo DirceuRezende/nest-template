@@ -1,6 +1,6 @@
 import { CacheModule, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import * as redisStore from 'cache-manager-ioredis';
+import * as redisStore from 'cache-manager-redis-store';
 import { BlockListService } from './blocklist.service';
 
 @Module({
@@ -11,6 +11,7 @@ import { BlockListService } from './blocklist.service';
         store: redisStore,
         host: configService.get<string>('REDIS_HOST'),
         port: configService.get<string>('REDIS_PORT'),
+        auth_pass: 'yourpassword',
         ttl: 60 * 3600 * 1000,
       }),
       inject: [ConfigService],

@@ -7,6 +7,7 @@ import { Tokens } from './types';
 import { MailService } from '../mail/mail.service';
 import {
   BadRequestException,
+  CACHE_MODULE_OPTIONS,
   ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import { JwtModule, JwtService } from '@nestjs/jwt';
 import * as argon from 'argon2';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BlockListService } from '../blocklist/blocklist.service';
+import { BlockListModule } from 'src/blocklist/blocklist.module';
 
 const user = {
   email: 'test@gmail.com',
@@ -43,6 +45,10 @@ describe('Auth Flow', () => {
         }),
       ],
     })
+      .overrideProvider(CACHE_MODULE_OPTIONS) // exported from @nestjs/common
+      .useValue({
+        ttl: 10,
+      })
       .overrideProvider(BlockListService)
       .useValue(mockRepository)
       .compile();

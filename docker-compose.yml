@@ -27,7 +27,7 @@ services:
     restart: always
     ports:
       - 6379:6379
-    command: redis-server
+    command: redis-server --requirepass yourpassword
     volumes: 
       - ./cache:/data
 volumes:

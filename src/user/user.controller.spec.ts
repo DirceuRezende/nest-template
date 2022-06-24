@@ -5,7 +5,7 @@ import { UserController } from './user.controller';
 import { AppModule } from '../app.module';
 import { AuthController } from '../auth/auth.controller';
 import { MailService } from '../mail/mail.service';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, CACHE_MODULE_OPTIONS } from '@nestjs/common';
 
 const user = {
   email: 'test@gmail.com',
@@ -23,7 +23,12 @@ describe('User Flow', () => {
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(CACHE_MODULE_OPTIONS) // exported from @nestjs/common
+      .useValue({
+        ttl: 10,
+      })
+      .compile();
 
     prisma = moduleRef.get(PrismaService);
     userController = moduleRef.get(UserController);
