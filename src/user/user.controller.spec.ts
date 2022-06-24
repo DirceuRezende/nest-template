@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException, CACHE_MODULE_OPTIONS } from '@nestjs/common';
 import { decode } from 'jsonwebtoken';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserController } from './user.controller';
 import { AppModule } from '../app.module';
 import { AuthController } from '../auth/auth.controller';
 import { MailService } from '../mail/mail.service';
-import { BadRequestException, CACHE_MODULE_OPTIONS } from '@nestjs/common';
 
 const user = {
   email: 'test@gmail.com',

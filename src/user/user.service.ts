@@ -1,14 +1,14 @@
+import * as argon from 'argon2';
 import {
   BadRequestException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, User } from '@prisma/client';
-import { CreateUserDto } from 'src/auth/dto/create-user.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
-import * as argon from 'argon2';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateUserDto } from '../auth/dto/create-user.dto';
 
 export type UpdateProperties = Partial<Omit<User, 'updated_at' | 'created_at'>>;
 

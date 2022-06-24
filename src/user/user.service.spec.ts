@@ -1,12 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
-import { PrismaService } from '../prisma/prisma.service';
-import { UserService } from './user.service';
 import {
   BadRequestException,
   ForbiddenException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
+import { PrismaService } from '../prisma/prisma.service';
+import { UserService } from './user.service';
 
 const user = {
   email: 'test@gmail.com',

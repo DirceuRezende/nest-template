@@ -6,12 +6,12 @@ import {
   HttpStatus,
   Put,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { GetCurrentUserId } from '../common/decorators';
 import { UserService } from './user.service';
 import { UpdateUserDto, ResponseUserDto } from './dto';
 
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 @ApiBearerAuth()
 @ApiTags('user')
 @Controller('user')
