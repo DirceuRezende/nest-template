@@ -11,7 +11,7 @@ import { BlockListService } from './blocklist.service';
         store: redisStore,
         host: configService.get<string>('REDIS_HOST'),
         port: configService.get<string>('REDIS_PORT'),
-        auth_pass: 'yourpassword',
+        auth_pass: configService.get<string>('REDIS_PASSWORD'),
         ttl: 60 * 3600 * 1000,
       }),
       inject: [ConfigService],
