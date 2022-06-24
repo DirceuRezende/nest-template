@@ -397,6 +397,7 @@ describe('AuthService', () => {
 
     it('should call sendResetPasswordLink correctly', async () => {
       const jwtService = moduleRef.get(JwtService);
+      const config = moduleRef.get(ConfigService);
       const spy = jest.spyOn(jwtService, 'sign');
       spy.mockImplementationOnce(() => {
         return 'token';
@@ -427,7 +428,10 @@ describe('AuthService', () => {
       expect(spy).toHaveBeenCalled();
       expect(spy).toHaveBeenCalledWith(
         { email: 'example@example.com' },
-        { expiresIn: '120m', secret: 'secret' },
+        {
+          secret: config.get<string>('JWT_SECRET'),
+          expiresIn: config.get<string>('EMAIL_JWT_EXPIRE_IN'),
+        },
       );
     });
   });

@@ -128,11 +128,11 @@ export class AuthService {
     const [at, rt] = await Promise.all([
       this.jwtService.signAsync(jwtPayload, {
         secret: this.config.get<string>('AT_SECRET'),
-        expiresIn: '15m',
+        expiresIn: this.config.get<string>('AT_JWT_EXPIRE_IN'),
       }),
       this.jwtService.signAsync(jwtPayload, {
         secret: this.config.get<string>('RT_SECRET'),
-        expiresIn: '7d',
+        expiresIn: this.config.get<string>('RT_JWT_EXPIRE_IN'),
       }),
     ]);
 
@@ -147,7 +147,7 @@ export class AuthService {
       { id: user.id },
       {
         secret: this.config.get<string>('JWT_SECRET'),
-        expiresIn: '120m',
+        expiresIn: this.config.get<string>('EMAIL_JWT_EXPIRE_IN'),
       },
     );
 
@@ -250,7 +250,7 @@ export class AuthService {
         { email },
         {
           secret: this.config.get<string>('JWT_SECRET'),
-          expiresIn: '120m',
+          expiresIn: this.config.get<string>('EMAIL_JWT_EXPIRE_IN'),
         },
       );
 

@@ -654,7 +654,7 @@ describe('Auth Flow', () => {
         { email: user.email + 1, id: 1 },
         {
           secret: config.get<string>('JWT_SECRET'),
-          expiresIn: '120m',
+          expiresIn: config.get<string>('EMAIL_JWT_EXPIRE_IN'),
         },
       );
       await prisma.forgotPassword.create({
@@ -690,7 +690,7 @@ describe('Auth Flow', () => {
         { email: user.email, id: 1 },
         {
           secret: config.get<string>('JWT_SECRET'),
-          expiresIn: '120m',
+          expiresIn: config.get<string>('EMAIL_JWT_EXPIRE_IN'),
         },
       );
       await prisma.forgotPassword.create({
