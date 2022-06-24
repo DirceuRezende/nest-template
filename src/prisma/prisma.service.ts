@@ -32,6 +32,7 @@ export class PrismaService
 
     // teardown logic
     const allKeys = Object.keys(this);
+
     const keys = [
       '_middlewares',
       '_transactionId',
@@ -45,6 +46,8 @@ export class PrismaService
       '_engineConfig',
       '_engine',
       '_fetcher',
+      '_dataProxy',
+      '_metrics',
       'config',
     ];
     const modelNames = allKeys.filter((property) => !keys.includes(property));
