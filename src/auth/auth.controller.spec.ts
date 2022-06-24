@@ -67,6 +67,11 @@ describe('Auth Flow', () => {
     await moduleRef.close();
   });
 
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await prisma.cleanDatabase();
+  });
+
   describe('signup', () => {
     beforeAll(async () => {
       await prisma.cleanDatabase();
@@ -106,9 +111,6 @@ describe('Auth Flow', () => {
   });
 
   describe('signin', () => {
-    beforeAll(async () => {
-      await prisma.cleanDatabase();
-    });
     it('should throw if no existing user', async () => {
       let tokens: Tokens | undefined;
       try {
@@ -157,14 +159,6 @@ describe('Auth Flow', () => {
   });
 
   describe('logout', () => {
-    beforeAll(async () => {
-      await prisma.cleanDatabase();
-    });
-
-    afterEach(() => {
-      jest.clearAllMocks();
-    });
-
     it('should pass if call to non existent user', async () => {
       mockRepository.set.mockResolvedValueOnce(null);
       const result = await authController.logout('Bearer token', 4);
@@ -204,10 +198,6 @@ describe('Auth Flow', () => {
   });
 
   describe('refresh', () => {
-    beforeAll(async () => {
-      await prisma.cleanDatabase();
-    });
-
     it('should throw if no existing user', async () => {
       let tokens: Tokens | undefined;
       try {
@@ -309,11 +299,6 @@ describe('Auth Flow', () => {
   });
 
   describe('verifyEmail', () => {
-    beforeEach(async () => {
-      jest.clearAllMocks();
-      await prisma.cleanDatabase();
-    });
-
     it('should verify the user', async () => {
       const _tokens = await authController.signupLocal({
         email: user.email,
@@ -385,11 +370,6 @@ describe('Auth Flow', () => {
   });
 
   describe('resendVerifyEmail', () => {
-    beforeEach(async () => {
-      jest.clearAllMocks();
-      await prisma.cleanDatabase();
-    });
-
     it('should resend verify e-mail', async () => {
       await authController.signupLocal({
         email: user.email,
@@ -443,10 +423,6 @@ describe('Auth Flow', () => {
   });
 
   describe('updatePassword', () => {
-    beforeEach(async () => {
-      await prisma.cleanDatabase();
-    });
-
     it('should update password', async () => {
       // signup and save refresh token
       const _tokens = await authController.signupLocal({
@@ -517,11 +493,6 @@ describe('Auth Flow', () => {
   });
 
   describe('sendForgotPasswordLink', () => {
-    beforeEach(async () => {
-      await prisma.cleanDatabase();
-      jest.clearAllMocks();
-    });
-
     it('should send forgot password link', async () => {
       mailService = moduleRef.get(MailService);
 
@@ -572,10 +543,6 @@ describe('Auth Flow', () => {
   });
 
   describe('resetPassword', () => {
-    beforeEach(async () => {
-      await prisma.cleanDatabase();
-    });
-
     it('should reset password', async () => {
       // signup and save refresh token
       await authController.signupLocal({

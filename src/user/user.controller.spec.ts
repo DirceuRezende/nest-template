@@ -42,11 +42,12 @@ describe('User Flow', () => {
     await moduleRef.close();
   });
 
-  describe('update', () => {
-    beforeEach(async () => {
-      await prisma.cleanDatabase();
-    });
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await prisma.cleanDatabase();
+  });
 
+  describe('update', () => {
     it('should update user', async () => {
       const tokens = await authController.signupLocal({
         email: user.email,
@@ -117,10 +118,6 @@ describe('User Flow', () => {
   });
 
   describe('getUser', () => {
-    beforeEach(async () => {
-      await prisma.cleanDatabase();
-    });
-
     it('should return user info', async () => {
       const tokens = await authController.signupLocal({
         email: user.email,
