@@ -81,6 +81,13 @@ export class AuthController {
     return;
   }
 
+  @Get('email/verify')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async sendVerifyEmail(@GetCurrentUserId() userId: number): Promise<void> {
+    await this.authService.sendVerifyEmail(userId);
+    return;
+  }
+
   @Patch('password/update')
   @HttpCode(HttpStatus.NO_CONTENT)
   async updatePassword(

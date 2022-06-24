@@ -156,6 +156,19 @@ export class AuthService {
     this.mailService.sendUserConfirmation(user, 'BlaBla', url);
   }
 
+  async sendVerifyEmail(userId: number): Promise<void> {
+    let user: User;
+    try {
+      user = await this.userService.findById(userId);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw new ForbiddenException('Access Denied');
+      }
+      throw new InternalServerErrorException(error);
+    }
+    this.sendEmailVerificationMail(user);
+  }
+
   async verifyEmail(token: string): Promise<User> {
     let userFromTokenPayload: User;
 
