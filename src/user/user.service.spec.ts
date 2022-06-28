@@ -51,7 +51,7 @@ describe('UserService', () => {
   });
 
   describe('findById', () => {
-    it('should return a user', async () => {
+    it('should return an user', async () => {
       mockPrismaService.user.findUnique.mockImplementationOnce(({ where }) => {
         return { ...user, id: where.id };
       });
@@ -65,15 +65,38 @@ describe('UserService', () => {
       });
     });
 
-    it('should throw a BadRequestException when user not found', async () => {
+    it('should throw a BadRequestException when user does not found', async () => {
       mockPrismaService.user.findUnique.mockResolvedValueOnce(undefined);
       try {
         await userService.findById(1);
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
-        expect(error.message).toBe('User not found');
+        expect(error.message).toBe('User does not found');
         expect(mockPrismaService.user.findUnique).toHaveBeenCalled();
       }
+    });
+  });
+
+  describe('findByEmail', () => {
+    it('should return an user', async () => {
+      mockPrismaService.user.findUnique.mockImplementationOnce(({ where }) => {
+        return { ...user, email: where.email, id: 1 };
+      });
+      const returnedUser = await userService.findByEmail('email@email.com');
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalled();
+      expect(returnedUser).toEqual({
+        email: 'email@email.com',
+        id: 1,
+        name: 'test',
+        password: 'super-secret-password',
+      });
+    });
+
+    it('should return undefined when User does not found', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValueOnce(undefined);
+
+      const user = await userService.findByEmail('email@email.com');
+      expect(user).toBeUndefined();
     });
   });
   describe('find', () => {
@@ -105,14 +128,14 @@ describe('UserService', () => {
       });
     });
 
-    it('should throw a BadRequestException when user not found', async () => {
+    it('should throw a BadRequestException when User does not found', async () => {
       mockPrismaService.user.findUnique.mockResolvedValueOnce(undefined);
       try {
         await userService.findById(1);
       } catch (error) {
         expect(mockPrismaService.user.findUnique).toHaveBeenCalled();
         expect(error).toBeInstanceOf(BadRequestException);
-        expect(error.message).toBe('User not found');
+        expect(error.message).toBe('User does not found');
       }
     });
   });
@@ -221,10 +244,10 @@ describe('UserService', () => {
       }
     });
 
-    it('should throw a BadRequestException when user not found', async () => {
+    it('should throw a BadRequestException when User does not found', async () => {
       const spy = jest.spyOn(userService, 'findById');
       spy.mockImplementationOnce(() => {
-        throw new BadRequestException('User not found');
+        throw new BadRequestException('User does not found');
       });
       try {
         await userService.updateUser(1, {
@@ -232,7 +255,7 @@ describe('UserService', () => {
         });
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
-        expect(error.message).toBe('User not found');
+        expect(error.message).toBe('User does not found');
         expect(spy).toHaveBeenCalled();
       }
     });
@@ -271,7 +294,7 @@ describe('UserService', () => {
         expect(error.message).toBe('Unexpected Error');
       }
     });
-    it('should throw a BadRequestException when user not found', async () => {
+    it('should throw a BadRequestException when User does not found', async () => {
       mockPrismaService.user.updateMany.mockImplementationOnce(() => {
         throw new PrismaClientKnownRequestError('Error', 'P2025', '1');
       });
@@ -286,7 +309,7 @@ describe('UserService', () => {
         });
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
-        expect(error.message).toBe('User not found');
+        expect(error.message).toBe('User does not found');
       }
     });
   });

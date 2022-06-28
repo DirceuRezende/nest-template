@@ -47,7 +47,7 @@ describe('Auth Flow', () => {
         }),
       ],
     })
-      .overrideProvider(CACHE_MODULE_OPTIONS) // exported from @nestjs/common
+      .overrideProvider(CACHE_MODULE_OPTIONS)
       .useValue({
         ttl: 10,
       })
@@ -102,8 +102,8 @@ describe('Auth Flow', () => {
           name: user.name,
         });
       } catch (error) {
-        expect(error).toBeInstanceOf(ForbiddenException);
-        expect(error.message).toBe('Credentials incorrect');
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.message).toBe('E-mail is already in use!');
       }
 
       expect(tokens).toBeUndefined();
@@ -182,7 +182,6 @@ describe('Auth Flow', () => {
       });
       expect(userFromDb?.hashedRt).toBeTruthy();
 
-      // logout
       mockRepository.set.mockResolvedValueOnce(null);
       await authController.logout('Bearer token', userFromDb?.id);
       expect(mockRepository.set).toHaveBeenCalledTimes(1);
@@ -211,7 +210,6 @@ describe('Auth Flow', () => {
     });
 
     it('should throw if user logged out', async () => {
-      // signup and save refresh token
       const _tokens = await authController.signupLocal({
         email: user.email,
         password: user.password,
@@ -220,13 +218,9 @@ describe('Auth Flow', () => {
 
       const rt = _tokens.refresh_token;
 
-      // get user id from refresh token
-      // also possible to get using prisma like above
-      // but since we have the rt already, why not just decoding it
       const decoded = decode(rt);
       const userId = Number(decoded?.sub);
 
-      // logout the user so the hashedRt is set to null
       mockRepository.set.mockResolvedValueOnce(null);
       await authController.logout('Bearer token', userId);
       expect(mockRepository.set).toHaveBeenCalledTimes(1);
@@ -269,7 +263,7 @@ describe('Auth Flow', () => {
 
     it('should refresh tokens', async () => {
       await prisma.cleanDatabase();
-      // log in the user again and save rt + at
+
       const _tokens = await authController.signupLocal({
         email: user.email,
         password: user.password,
@@ -282,7 +276,6 @@ describe('Auth Flow', () => {
       const decoded = decode(rt);
       const userId = Number(decoded?.sub);
 
-      // since jwt uses seconds signature we need to wait for 1 second to have new jwts
       await new Promise((resolve) => {
         setTimeout(() => {
           resolve(true);
@@ -292,7 +285,6 @@ describe('Auth Flow', () => {
       const tokens = await authController.refreshTokens(userId, rt);
       expect(tokens).toBeDefined();
 
-      // refreshed tokens should be different
       expect(tokens.access_token).not.toBe(at);
       expect(tokens.refresh_token).not.toBe(rt);
     });
@@ -307,9 +299,7 @@ describe('Auth Flow', () => {
       });
 
       const rt = _tokens.refresh_token;
-      // get user id from refresh token
-      // also possible to get using prisma like above
-      // but since we have the rt already, why not just decoding it
+
       const decoded = decode(rt);
       const userId = Number(decoded?.sub);
       const jwtService = moduleRef.get(JwtService);
@@ -339,9 +329,6 @@ describe('Auth Flow', () => {
 
       const rt = _tokens.refresh_token;
 
-      // get user id from refresh token
-      // also possible to get using prisma like above
-      // but since we have the rt already, why not just decoding it
       const decoded = decode(rt);
       const userId = Number(decoded?.sub);
 
@@ -424,7 +411,6 @@ describe('Auth Flow', () => {
 
   describe('updatePassword', () => {
     it('should update password', async () => {
-      // signup and save refresh token
       const _tokens = await authController.signupLocal({
         email: user.email,
         password: user.password,
@@ -433,9 +419,6 @@ describe('Auth Flow', () => {
 
       const rt = _tokens.refresh_token;
 
-      // get user id from refresh token
-      // also possible to get using prisma like above
-      // but since we have the rt already, why not just decoding it
       const decoded = decode(rt);
       const userId = Number(decoded?.sub);
 
@@ -464,9 +447,6 @@ describe('Auth Flow', () => {
 
       const rt = _tokens.refresh_token;
 
-      // get user id from refresh token
-      // also possible to get using prisma like above
-      // but since we have the rt already, why not just decoding it
       const decoded = decode(rt);
       const userId = Number(decoded?.sub);
       try {
@@ -499,7 +479,6 @@ describe('Auth Flow', () => {
       const spy = jest.spyOn(mailService, 'sendResetPasswordLink');
       spy.mockReturnValueOnce(Promise.resolve());
 
-      // signup and save refresh token
       await authController.signupLocal({
         email: user.email,
         password: user.password,
@@ -520,7 +499,7 @@ describe('Auth Flow', () => {
       expect(spy).toHaveBeenCalled();
     });
 
-    it('should return successfully even if user not found', async () => {
+    it('should return successfully even if user does not found', async () => {
       mailService = moduleRef.get(MailService);
 
       const spy = jest.spyOn(mailService, 'sendResetPasswordLink');
@@ -544,7 +523,6 @@ describe('Auth Flow', () => {
 
   describe('resetPassword', () => {
     it('should reset password', async () => {
-      // signup and save refresh token
       await authController.signupLocal({
         email: user.email,
         password: user.password,
@@ -707,7 +685,7 @@ describe('Auth Flow', () => {
         });
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
-        expect(error.message).toBe('User not found');
+        expect(error.message).toBe('User does not found');
       }
     });
   });

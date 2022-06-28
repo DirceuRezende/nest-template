@@ -23,8 +23,18 @@ export class UserService {
       },
     });
     if (!user) {
-      throw new BadRequestException('User not found');
+      throw new BadRequestException('User does not found');
     }
+
+    return user;
+  }
+
+  async findByEmail(email: string): Promise<User | undefined> {
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        email,
+      },
+    });
 
     return user;
   }
@@ -35,7 +45,7 @@ export class UserService {
   ): Promise<User> {
     const user = await this.prismaService.user.findUnique(options);
     if (!user) {
-      throw new BadRequestException('User not found');
+      throw new BadRequestException('User does not found');
     }
     if (!withPassword) {
       delete user.password;
@@ -92,7 +102,7 @@ export class UserService {
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
-          throw new BadRequestException('User not found');
+          throw new BadRequestException('User does not found');
         }
       } else if (error.message === 'E-mail already used from another user!') {
         throw error;
@@ -111,7 +121,7 @@ export class UserService {
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
-          throw new BadRequestException('User not found');
+          throw new BadRequestException('User does not found');
         }
       }
       throw new InternalServerErrorException(error);

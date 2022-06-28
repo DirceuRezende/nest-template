@@ -24,7 +24,7 @@ describe('User Flow', () => {
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     })
-      .overrideProvider(CACHE_MODULE_OPTIONS) // exported from @nestjs/common
+      .overrideProvider(CACHE_MODULE_OPTIONS)
       .useValue({
         ttl: 10,
       })
@@ -69,7 +69,7 @@ describe('User Flow', () => {
       });
     });
 
-    it('should throw a ForbiddenException when user not found', async () => {
+    it('should throw a ForbiddenException when user does not found', async () => {
       try {
         const tokens = await authController.signupLocal({
           email: user.email,
@@ -86,11 +86,11 @@ describe('User Flow', () => {
         });
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
-        expect(error.message).toBe('User not found');
+        expect(error.message).toBe('User does not found');
       }
     });
 
-    it('should throw a ForbiddenException when user not found', async () => {
+    it('should throw a ForbiddenException when user does not found', async () => {
       try {
         const tokens = await authController.signupLocal({
           email: user.email,
@@ -137,7 +137,7 @@ describe('User Flow', () => {
       });
     });
 
-    it('should throw a BadRequestException when user not found', async () => {
+    it('should throw a BadRequestException when user does not found', async () => {
       const tokens = await authController.signupLocal({
         email: user.email,
         password: user.password,
@@ -150,7 +150,7 @@ describe('User Flow', () => {
         await userController.getUser(userId + 1);
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
-        expect(error.message).toBe('User not found');
+        expect(error.message).toBe('User does not found');
       }
     });
   });

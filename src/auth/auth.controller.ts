@@ -103,6 +103,7 @@ export class AuthController {
     return;
   }
 
+  @Public()
   @Post('password/forgotlink')
   @HttpCode(HttpStatus.NO_CONTENT)
   async sendForgotPasswordLink(@Body() body: ForgotPasswordDto): Promise<void> {
@@ -110,6 +111,7 @@ export class AuthController {
     return;
   }
 
+  @Public()
   @Post('password/reset')
   @HttpCode(HttpStatus.NO_CONTENT)
   async resetPassword(@Body() body: ResetPasswordDto): Promise<void> {

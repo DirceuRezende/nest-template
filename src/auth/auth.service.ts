@@ -28,19 +28,35 @@ export class AuthService {
   ) {}
 
   async signupLocal(dto: CreateUserDto): Promise<Auth> {
-    const user = await this.userService.createUser(dto);
+    try {
+      const userEmail = await this.userService.findByEmail(dto.email);
 
-    const tokens = await this.getTokens(user.id, user.email);
-    await this.updateRtHash(user.id, tokens.refresh_token);
-    this.sendEmailVerificationMail(user);
+      if (userEmail) {
+        throw new BadRequestException('E-mail is already in use!');
+      }
 
-    return {
-      ...tokens,
-      user: {
-        name: user.name,
-        email: user.email,
-      },
-    };
+      const user = await this.userService.createUser(dto);
+
+      const tokens = await this.getTokens(user.id, user.email);
+      await this.updateRtHash(user.id, tokens.refresh_token);
+      this.sendEmailVerificationMail(user);
+
+      return {
+        ...tokens,
+        user: {
+          name: user.name,
+          email: user.email,
+        },
+      };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException &&
+        error.message === 'E-mail is already in use!'
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException(error);
+    }
   }
 
   async signinLocal(dto: AuthDto): Promise<Auth> {
@@ -180,7 +196,7 @@ export class AuthService {
       throw new BadRequestException('Invalid token');
     }
     await this.userService.findById(userFromTokenPayload.id);
-    // Update email verification status.
+
     const updatedUser = await this.userService.updateUser(
       userFromTokenPayload.id,
       {
@@ -191,27 +207,13 @@ export class AuthService {
     return updatedUser;
   }
 
-  /**
-   * Update the password of a user.
-   *
-   * @param {User} user
-   *   The user object.
-   * @param oldPassword
-   *   The old password of the user in plain text.
-   * @param newPassword
-   *   The new password in plain text.
-   *
-   * @returns
-   */
   async changePassword(
     id: number,
     oldPassword: string,
     newPassword: string,
   ): Promise<any> {
-    // Probably the password is not included in the user object. Thus, we need to reload the user and include the password.
     const user = await this.userService.findById(id);
 
-    // Check if the old password is correct.
     const isOldPasswordCorrect: boolean = await argon.verify(
       user.password,
       oldPassword,
@@ -221,7 +223,6 @@ export class AuthService {
       throw new UnauthorizedException('Old password is not correct');
     }
 
-    // Hash new password & update entity.
     const password = await argon.hash(newPassword);
 
     return await this.userService.updateUser(user.id, {
@@ -229,14 +230,6 @@ export class AuthService {
     });
   }
 
-  /**
-   * Send a reset password link to a given email that the user can then use to reset her password.
-   *
-   * @param {string} email
-   *   The email of the user.
-   *
-   * @returns
-   */
   async sendForgotPasswordLink(email: string) {
     try {
       await this.userService.find({ where: { email } });
@@ -253,8 +246,6 @@ export class AuthService {
           expiresIn: this.config.get<string>('EMAIL_JWT_EXPIRE_IN'),
         },
       );
-
-      // Create an entry in the Forgot Password table.
 
       await this.prisma.forgotPassword.upsert({
         where: {
@@ -279,19 +270,7 @@ export class AuthService {
     }
   }
 
-  /**
-   * Let the user set a new password after declaring that she forgot it.
-   *
-   * @param {string} token
-   *   The token that she got per mail. Necessary for security reasons.
-   *
-   * @param newPassword
-   *   The new password the user wants to set.
-   *
-   * @returns
-   */
   async resetPassword(token: string, newPassword: string): Promise<User> {
-    // Load the entry from DB with the given token.
     const forgotToken = await this.prisma.forgotPassword.findFirst({
       where: {
         token,
@@ -301,7 +280,6 @@ export class AuthService {
       throw new BadRequestException('Invalid token');
     }
 
-    // Decode token. Throws an error if invalid, return object with user email if valid.
     let emailFromToken: any;
     try {
       emailFromToken = this.jwtService.verify(token, {

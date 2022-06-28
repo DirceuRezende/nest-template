@@ -48,6 +48,7 @@ describe('AuthService', () => {
     updateUser: jest.fn(),
     find: jest.fn(),
     findById: jest.fn(),
+    findByEmail: jest.fn(),
     createUser: jest.fn(),
     updateMany: jest.fn(),
   };
@@ -97,10 +98,10 @@ describe('AuthService', () => {
       expect(tokens.refresh_token).toBeTruthy();
     });
 
-    it('should throw on duplicate user signup', async () => {
+    it('should throw an error on duplicate user signup', async () => {
       let tokens: Tokens | undefined;
-      mockUserService.createUser.mockRejectedValueOnce(
-        new ForbiddenException('Credentials incorrect'),
+      mockUserService.findByEmail.mockRejectedValueOnce(
+        new BadRequestException('E-mail is already in use!'),
       );
       try {
         tokens = await authService.signupLocal({
@@ -109,8 +110,27 @@ describe('AuthService', () => {
           name: user.name,
         });
       } catch (error) {
-        expect(error).toBeInstanceOf(ForbiddenException);
-        expect(error.message).toBe('Credentials incorrect');
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.message).toBe('E-mail is already in use!');
+      }
+
+      expect(tokens).toBeUndefined();
+    });
+
+    it('should throw an error on unexpected error', async () => {
+      let tokens: Tokens | undefined;
+      mockUserService.findByEmail.mockRejectedValueOnce(
+        new ForbiddenException('Unexpected error!'),
+      );
+      try {
+        tokens = await authService.signupLocal({
+          email: user.email,
+          password: user.password,
+          name: user.name,
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(InternalServerErrorException);
+        expect(error.message).toBe('Unexpected error!');
       }
 
       expect(tokens).toBeUndefined();
@@ -120,7 +140,7 @@ describe('AuthService', () => {
   describe('signin', () => {
     it('should throw if no existing user', async () => {
       mockUserService.find.mockRejectedValueOnce(
-        new BadRequestException('User not found'),
+        new BadRequestException('User does not found'),
       );
       let tokens: Tokens | undefined;
       try {
@@ -202,7 +222,7 @@ describe('AuthService', () => {
   describe('refresh', () => {
     it('should throw if not existing user', async () => {
       mockUserService.findById.mockRejectedValueOnce(
-        new BadRequestException('User not found'),
+        new BadRequestException('User does not found'),
       );
       let tokens: Tokens | undefined;
       try {
@@ -374,7 +394,7 @@ describe('AuthService', () => {
   describe('sendForgotPasswordLink', () => {
     it('should do nothing when e-mail is invalid', async () => {
       mockUserService.find.mockRejectedValueOnce(
-        new BadRequestException('User not found'),
+        new BadRequestException('User does not found'),
       );
       const sendForgotPasswordLinkReturn =
         await authService.sendForgotPasswordLink('example@example.com');
@@ -533,14 +553,14 @@ describe('AuthService', () => {
       });
 
       mockUserService.find.mockRejectedValueOnce(
-        new BadRequestException('User not found'),
+        new BadRequestException('User does not found'),
       );
       try {
         await authService.resetPassword('token', 'newPassword');
       } catch (error) {
         expect(spy).toHaveBeenCalled();
         expect(error).toBeInstanceOf(BadRequestException);
-        expect(error.message).toBe('User not found');
+        expect(error.message).toBe('User does not found');
       }
     });
     it('should update user with new password', async () => {
