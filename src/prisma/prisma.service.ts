@@ -34,6 +34,7 @@ export class PrismaService
     const allKeys = Object.keys(this);
 
     const keys = [
+      '_baseDmmf',
       '_middlewares',
       '_transactionId',
       '_rejectOnNotFound',
