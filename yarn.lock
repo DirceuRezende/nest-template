@@ -1230,10 +1230,10 @@
   resolved "https://registry.yarnpkg.com/@types/parse-json/-/parse-json-4.0.0.tgz#2f8bb441434d163b35fb8ffdccd7138927ffb8c0"
   integrity sha512-//oorEZjL6sbPcKUaCdIGlIUeH26mgzimjBB77G6XRgnDl/L5wOnpyBGRe/Mmf5CVW3PwEBE1NjiMZ/ssFh4wA==
 
-"@types/passport-jwt@^3.0.6":
-  version "3.0.6"
-  resolved "https://registry.yarnpkg.com/@types/passport-jwt/-/passport-jwt-3.0.6.tgz#41cc8b5803d5f5f06eb33e19c453b42716def4f1"
-  integrity sha512-cmAAMIRTaEwpqxlrZyiEY9kdibk94gP5KTF8AT1Ra4rWNZYHNMreqhKUEeC5WJtuN5SJZjPQmV+XO2P5PlnvNQ==
+"@types/passport-jwt@^3.0.8":
+  version "3.0.8"
+  resolved "https://registry.yarnpkg.com/@types/passport-jwt/-/passport-jwt-3.0.8.tgz#c8a95bf7d8f330f2560f1b3d07605e23ac01469a"
+  integrity sha512-VKJZDJUAHFhPHHYvxdqFcc5vlDht8Q2pL1/ePvKAgqRThDaCc84lSYOTQmnx3+JIkDlN+2KfhFhXIzlcVT+Pcw==
   dependencies:
     "@types/express" "*"
     "@types/jsonwebtoken" "*"
@@ -3568,11 +3568,6 @@ function-bind@^1.1.1:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/function-bind/-/function-bind-1.1.1.tgz#a56899d3ea3c9bab874bb9773b7c5ede92f4895d"
   integrity sha512-yIovAzMX49sF8Yl58fSCWJ5svSLuaibPxXQJFLmBObTuCr0Mf1KiPopGM9NiFjiYBCbfaa2Fh6breQ6ANVTI0A==
-
-functional-red-black-tree@^1.0.1:
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/functional-red-black-tree/-/functional-red-black-tree-1.0.1.tgz#1b0ab3bd553b2a0d6399d29c0e3ea0b252078327"
-  integrity sha512-dsKNQNdj6xA3T+QlADDA7mOSlX0qiMINjn0cgr+eGHGsbSHzTabcIogz2+p/iqP1Xs6EP/sS2SbqH+brGTbq0g==
 
 gauge@^3.0.0:
   version "3.0.2"
